@@ -7,6 +7,17 @@ const { serializeUser } = require('../../utils/serializers');
 const { badRequest, unauthorized, forbidden, notFound } = require('../../utils/errors');
 const { requireFields } = require('../../utils/sql');
 const { ensureUserSummaryRows } = require('../../services/gamification');
+const {
+  assertRefreshTokenIsActive,
+  getRefreshTokenExpiryDate,
+  revokeRefreshToken,
+  storeRefreshToken,
+} = require('../../services/refresh-tokens');
+const {
+  clearRefreshTokenCookie,
+  getRefreshTokenFromRequest,
+  setRefreshTokenCookie,
+} = require('../../utils/cookies');
 
 const router = express.Router();
 
@@ -47,13 +58,18 @@ router.post(
         [Number(result.insertId)]
       );
       const user = rows[0];
+      const tokenPair = generateTokenPair(user);
+
+      const refreshExpiry = await storeRefreshToken(connection, Number(user.id), tokenPair.refreshToken);
 
       return {
-        ...generateTokenPair(user),
+        ...tokenPair,
+        refreshTokenExpiresAt: refreshExpiry.toISOString(),
         user: serializeUser(user),
       };
     });
 
+    setRefreshTokenCookie(res, response.refreshToken, new Date(response.refreshTokenExpiresAt));
     res.status(201).json(response);
   })
 );
@@ -82,10 +98,19 @@ router.post(
       throw forbidden('User account is not active');
     }
 
-    res.json({
-      ...generateTokenPair(user),
-      user: serializeUser(user),
+    const response = await withTransaction(async (connection) => {
+      const tokenPair = generateTokenPair(user);
+      const refreshExpiry = await storeRefreshToken(connection, Number(user.id), tokenPair.refreshToken);
+
+      return {
+        ...tokenPair,
+        refreshTokenExpiresAt: refreshExpiry.toISOString(),
+        user: serializeUser(user),
+      };
     });
+
+    setRefreshTokenCookie(res, response.refreshToken, new Date(response.refreshTokenExpiresAt));
+    res.json(response);
   })
 );
 
@@ -93,35 +118,69 @@ router.post(
   '/refresh',
   asyncHandler(async (req, res) => {
     const payload = req.body || {};
-    requireFields(payload, ['refreshToken']);
+    const refreshToken = payload.refreshToken || getRefreshTokenFromRequest(req);
 
-    let tokenPayload;
-
-    try {
-      tokenPayload = verifyRefreshToken(payload.refreshToken);
-    } catch (error) {
-      throw unauthorized('Invalid or expired refresh token');
+    if (!refreshToken) {
+      clearRefreshTokenCookie(res);
+      return res.json({
+        accessToken: null,
+        refreshToken: null,
+        refreshTokenExpiresAt: null,
+      });
     }
 
-    const [rows] = await pool.execute('SELECT * FROM users WHERE id = ? LIMIT 1', [Number(tokenPayload.sub)]);
-    const user = rows[0];
+    const response = await withTransaction(async (connection) => {
+      let tokenPayload;
 
-    if (!user) {
-      throw notFound('User not found');
-    }
+      try {
+        tokenPayload = verifyRefreshToken(refreshToken);
+      } catch (error) {
+        throw unauthorized('Invalid or expired refresh token');
+      }
 
-    if (user.status !== 'active') {
-      throw forbidden('User account is not active');
-    }
+      await assertRefreshTokenIsActive(connection, Number(tokenPayload.sub), refreshToken);
 
-    res.json(generateTokenPair(user));
+      const [rows] = await connection.execute('SELECT * FROM users WHERE id = ? LIMIT 1', [
+        Number(tokenPayload.sub),
+      ]);
+      const user = rows[0];
+
+      if (!user) {
+        throw notFound('User not found');
+      }
+
+      if (user.status !== 'active') {
+        throw forbidden('User account is not active');
+      }
+
+      await revokeRefreshToken(connection, refreshToken);
+
+      const tokenPair = generateTokenPair(user);
+      const refreshExpiry = await storeRefreshToken(connection, Number(user.id), tokenPair.refreshToken);
+
+      return {
+        ...tokenPair,
+        refreshTokenExpiresAt: refreshExpiry.toISOString(),
+      };
+    });
+
+    setRefreshTokenCookie(res, response.refreshToken, new Date(response.refreshTokenExpiresAt));
+    res.json(response);
   })
 );
 
 router.post(
   '/logout',
-  authenticate,
   asyncHandler(async (req, res) => {
+    const refreshToken = getRefreshTokenFromRequest(req) || (req.body || {}).refreshToken;
+
+    if (refreshToken) {
+      await withTransaction(async (connection) => {
+        await revokeRefreshToken(connection, refreshToken);
+      });
+    }
+
+    clearRefreshTokenCookie(res);
     res.status(204).send();
   })
 );

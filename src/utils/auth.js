@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { adminEmails, jwt: jwtConfig, nodeEnv } = require('../config/env');
 
@@ -25,11 +26,14 @@ function signAccessToken(user) {
 }
 
 function signRefreshToken(user) {
+  const tokenId = crypto.randomUUID();
+
   return jwt.sign(
     {
       sub: String(user.id),
       email: user.email,
       type: 'refresh',
+      jti: tokenId,
       role: isAdminEmail(user.email) ? 'admin' : 'user',
     },
     jwtConfig.refreshSecret,
@@ -52,6 +56,10 @@ function verifyRefreshToken(token) {
   return jwt.verify(token, jwtConfig.refreshSecret);
 }
 
+function hashToken(token) {
+  return crypto.createHash('sha256').update(String(token)).digest('hex');
+}
+
 async function hashPassword(password) {
   return bcrypt.hash(password, 10);
 }
@@ -64,6 +72,7 @@ module.exports = {
   generateTokenPair,
   verifyAccessToken,
   verifyRefreshToken,
+  hashToken,
   hashPassword,
   comparePassword,
   isAdminEmail,

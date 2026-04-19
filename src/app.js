@@ -8,9 +8,13 @@ const app = express();
 
 const corsOptions =
   corsOrigin === '*'
-    ? {}
+    ? {
+        origin: true,
+        credentials: true,
+      }
     : {
         origin: corsOrigin.split(',').map((value) => value.trim()),
+        credentials: true,
       };
 
 app.use(cors(corsOptions));
