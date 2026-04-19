@@ -1,0 +1,1597 @@
+openapi: 3.0.3
+info:
+  title: Nyaya API
+  version: 1.0.0
+  description: |
+    OpenAPI specification for the Nyaya quiz and gamification platform.
+    Covers authentication, quiz play, progress tracking, leaderboards,
+    and admin content management.
+servers:
+  - url: https://api.nyaya.app/v1
+    description: Production
+  - url: http://localhost:8080/api/v1
+    description: Local
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+  - name: Users
+  - name: Categories
+  - name: Quizzes
+  - name: QuizAttempts
+  - name: Levels
+  - name: Leaderboards
+  - name: Admin
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout current user
+      responses:
+        '204':
+          description: Logged out
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get authenticated user
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Get current user profile
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    patch:
+      tags: [Users]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/me/progress:
+    get:
+      tags: [Users]
+      summary: Get current user progress summary
+      responses:
+        '200':
+          description: Progress summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProgress'
+
+  /users/me/streak:
+    get:
+      tags: [Users]
+      summary: Get current user streak
+      responses:
+        '200':
+          description: Streak details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStreak'
+
+  /users/me/achievements:
+    get:
+      tags: [Users]
+      summary: Get unlocked achievements
+      responses:
+        '200':
+          description: Achievements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserAchievement'
+
+  /users/me/point-transactions:
+    get:
+      tags: [Users]
+      summary: Get point transaction history
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Point transaction list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPointTransactions'
+
+  /categories:
+    get:
+      tags: [Categories]
+      summary: List active categories
+      responses:
+        '200':
+          description: Category list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+
+  /categories/{categoryId}:
+    get:
+      tags: [Categories]
+      summary: Get category details
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      responses:
+        '200':
+          description: Category details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+
+  /categories/{categoryId}/quizzes:
+    get:
+      tags: [Categories, Quizzes]
+      summary: List quizzes for a category
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      responses:
+        '200':
+          description: Quizzes in category
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Quiz'
+
+  /quizzes:
+    get:
+      tags: [Quizzes]
+      summary: List quizzes
+      parameters:
+        - in: query
+          name: categoryId
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: difficulty
+          schema:
+            type: string
+            enum: [easy, medium, hard]
+        - in: query
+          name: active
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Quiz list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedQuizzes'
+
+  /quizzes/{quizId}:
+    get:
+      tags: [Quizzes]
+      summary: Get quiz details
+      parameters:
+        - $ref: '#/components/parameters/QuizId'
+      responses:
+        '200':
+          description: Quiz details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quiz'
+
+  /quizzes/{quizId}/questions:
+    get:
+      tags: [Quizzes]
+      summary: Get quiz questions for play
+      description: Correct answers are intentionally excluded.
+      parameters:
+        - $ref: '#/components/parameters/QuizId'
+      responses:
+        '200':
+          description: Quiz questions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  quizId:
+                    type: integer
+                    format: int64
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PlayableQuestion'
+
+  /quiz-attempts:
+    post:
+      tags: [QuizAttempts]
+      summary: Start a new quiz attempt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQuizAttemptRequest'
+      responses:
+        '201':
+          description: Attempt created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizAttempt'
+    get:
+      tags: [QuizAttempts]
+      summary: List quiz attempts for current user
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [in_progress, submitted, expired]
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Quiz attempt list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedQuizAttempts'
+
+  /quiz-attempts/{attemptId}:
+    get:
+      tags: [QuizAttempts]
+      summary: Get quiz attempt details
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+      responses:
+        '200':
+          description: Attempt details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizAttempt'
+
+  /quiz-attempts/{attemptId}/answers:
+    post:
+      tags: [QuizAttempts]
+      summary: Submit an answer for one question
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitAnswerRequest'
+      responses:
+        '201':
+          description: Answer recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionAttempt'
+
+  /quiz-attempts/{attemptId}/submit:
+    post:
+      tags: [QuizAttempts]
+      summary: Submit a quiz attempt
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+      responses:
+        '200':
+          description: Attempt submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizResult'
+
+  /quiz-attempts/{attemptId}/result:
+    get:
+      tags: [QuizAttempts]
+      summary: Get submitted quiz result
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+      responses:
+        '200':
+          description: Quiz result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizResult'
+
+  /levels:
+    get:
+      tags: [Levels]
+      summary: List levels
+      responses:
+        '200':
+          description: Level list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Level'
+
+  /levels/current:
+    get:
+      tags: [Levels]
+      summary: Get current user level details
+      responses:
+        '200':
+          description: Current level summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentLevelResponse'
+
+  /leaderboards/global:
+    get:
+      tags: [Leaderboards]
+      summary: Get global leaderboard
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Global leaderboard entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaderboardResponse'
+
+  /leaderboards/weekly:
+    get:
+      tags: [Leaderboards]
+      summary: Get weekly leaderboard
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Weekly leaderboard entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaderboardResponse'
+
+  /leaderboards/category/{categoryId}:
+    get:
+      tags: [Leaderboards]
+      summary: Get category leaderboard
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Category leaderboard entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaderboardResponse'
+
+  /admin/categories:
+    post:
+      tags: [Admin]
+      summary: Create category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoryRequest'
+      responses:
+        '201':
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+
+  /admin/categories/{categoryId}:
+    patch:
+      tags: [Admin]
+      summary: Update category
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCategoryRequest'
+      responses:
+        '200':
+          description: Category updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+    delete:
+      tags: [Admin]
+      summary: Deactivate category
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      responses:
+        '204':
+          description: Category deactivated
+
+  /admin/quizzes:
+    post:
+      tags: [Admin]
+      summary: Create quiz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQuizRequest'
+      responses:
+        '201':
+          description: Quiz created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quiz'
+
+  /admin/quizzes/{quizId}:
+    patch:
+      tags: [Admin]
+      summary: Update quiz
+      parameters:
+        - $ref: '#/components/parameters/QuizId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateQuizRequest'
+      responses:
+        '200':
+          description: Quiz updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quiz'
+    delete:
+      tags: [Admin]
+      summary: Deactivate quiz
+      parameters:
+        - $ref: '#/components/parameters/QuizId'
+      responses:
+        '204':
+          description: Quiz deactivated
+
+  /admin/questions:
+    post:
+      tags: [Admin]
+      summary: Create question
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQuestionRequest'
+      responses:
+        '201':
+          description: Question created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+
+  /admin/questions/{questionId}:
+    patch:
+      tags: [Admin]
+      summary: Update question
+      parameters:
+        - $ref: '#/components/parameters/QuestionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateQuestionRequest'
+      responses:
+        '200':
+          description: Question updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+    delete:
+      tags: [Admin]
+      summary: Deactivate question
+      parameters:
+        - $ref: '#/components/parameters/QuestionId'
+      responses:
+        '204':
+          description: Question deactivated
+
+  /admin/questions/{questionId}/options:
+    post:
+      tags: [Admin]
+      summary: Add question option
+      parameters:
+        - $ref: '#/components/parameters/QuestionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQuestionOptionRequest'
+      responses:
+        '201':
+          description: Option created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionOption'
+
+  /admin/options/{optionId}:
+    patch:
+      tags: [Admin]
+      summary: Update question option
+      parameters:
+        - $ref: '#/components/parameters/OptionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateQuestionOptionRequest'
+      responses:
+        '200':
+          description: Option updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionOption'
+    delete:
+      tags: [Admin]
+      summary: Delete question option
+      parameters:
+        - $ref: '#/components/parameters/OptionId'
+      responses:
+        '204':
+          description: Option deleted
+
+  /admin/levels:
+    post:
+      tags: [Admin]
+      summary: Create level
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLevelRequest'
+      responses:
+        '201':
+          description: Level created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Level'
+
+  /admin/levels/{levelId}:
+    patch:
+      tags: [Admin]
+      summary: Update level
+      parameters:
+        - $ref: '#/components/parameters/LevelId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLevelRequest'
+      responses:
+        '200':
+          description: Level updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Level'
+
+  /health:
+    get:
+      tags: [Admin]
+      summary: Liveness probe
+      security: []
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /ready:
+    get:
+      tags: [Admin]
+      summary: Readiness probe
+      security: []
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    CategoryId:
+      in: path
+      name: categoryId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    QuizId:
+      in: path
+      name: quizId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    QuestionId:
+      in: path
+      name: questionId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    AttemptId:
+      in: path
+      name: attemptId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    OptionId:
+      in: path
+      name: optionId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    LevelId:
+      in: path
+      name: levelId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    Page:
+      in: query
+      name: page
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Size:
+      in: query
+      name: size
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    Limit:
+      in: query
+      name: limit
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [fullName, email, password]
+      properties:
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        password:
+          type: string
+          format: password
+          minLength: 8
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    TokenPair:
+      type: object
+      required: [accessToken, refreshToken]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+
+    AuthResponse:
+      allOf:
+        - $ref: '#/components/schemas/TokenPair'
+        - type: object
+          required: [user]
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      required: [id, fullName, email, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, inactive, blocked]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+        phone:
+          type: string
+
+    Category:
+      type: object
+      required: [id, name, slug, isActive]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Quiz:
+      type: object
+      required: [id, categoryId, title, difficulty, totalQuestions, isActive]
+      properties:
+        id:
+          type: integer
+          format: int64
+        categoryId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+        totalQuestions:
+          type: integer
+        timeLimitSeconds:
+          type: integer
+          nullable: true
+        passingScore:
+          type: number
+          format: float
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Question:
+      type: object
+      required: [id, quizId, questionText, questionType, pointsReward, displayOrder, isActive]
+      properties:
+        id:
+          type: integer
+          format: int64
+        quizId:
+          type: integer
+          format: int64
+        questionText:
+          type: string
+        questionType:
+          type: string
+          enum: [single_choice, multi_choice, true_false]
+        explanation:
+          type: string
+          nullable: true
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+        pointsReward:
+          type: integer
+        negativePoints:
+          type: integer
+          default: 0
+        displayOrder:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    QuestionOption:
+      type: object
+      required: [id, questionId, optionText, isCorrect, displayOrder]
+      properties:
+        id:
+          type: integer
+          format: int64
+        questionId:
+          type: integer
+          format: int64
+        optionText:
+          type: string
+        isCorrect:
+          type: boolean
+        displayOrder:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    PlayableQuestion:
+      type: object
+      required: [id, questionText, questionType, pointsReward, displayOrder, options]
+      properties:
+        id:
+          type: integer
+          format: int64
+        questionText:
+          type: string
+        questionType:
+          type: string
+          enum: [single_choice, multi_choice, true_false]
+        explanation:
+          type: string
+          nullable: true
+        pointsReward:
+          type: integer
+        negativePoints:
+          type: integer
+        displayOrder:
+          type: integer
+        options:
+          type: array
+          items:
+            type: object
+            required: [id, optionText, displayOrder]
+            properties:
+              id:
+                type: integer
+                format: int64
+              optionText:
+                type: string
+              displayOrder:
+                type: integer
+
+    QuizAttempt:
+      type: object
+      required: [id, userId, quizId, status, totalQuestions, answeredQuestions, correctAnswers, wrongAnswers, skippedAnswers, totalScore, totalPointsEarned, startedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        quizId:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [in_progress, submitted, expired]
+        totalQuestions:
+          type: integer
+        answeredQuestions:
+          type: integer
+        correctAnswers:
+          type: integer
+        wrongAnswers:
+          type: integer
+        skippedAnswers:
+          type: integer
+        totalScore:
+          type: number
+          format: float
+        totalPointsEarned:
+          type: integer
+        completedInSeconds:
+          type: integer
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+        submittedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateQuizAttemptRequest:
+      type: object
+      required: [quizId]
+      properties:
+        quizId:
+          type: integer
+          format: int64
+
+    SubmitAnswerRequest:
+      type: object
+      required: [questionId, selectedOptionId]
+      properties:
+        questionId:
+          type: integer
+          format: int64
+        selectedOptionId:
+          type: integer
+          format: int64
+        responseTimeMs:
+          type: integer
+          minimum: 0
+
+    QuestionAttempt:
+      type: object
+      required: [id, quizAttemptId, userId, questionId, selectedOptionId, isCorrect, pointsEarned, answeredAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        quizAttemptId:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        questionId:
+          type: integer
+          format: int64
+        selectedOptionId:
+          type: integer
+          format: int64
+        isCorrect:
+          type: boolean
+        pointsEarned:
+          type: integer
+        answeredAt:
+          type: string
+          format: date-time
+        responseTimeMs:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    QuizResult:
+      type: object
+      required: [attempt, progress, streak]
+      properties:
+        attempt:
+          $ref: '#/components/schemas/QuizAttempt'
+        progress:
+          $ref: '#/components/schemas/UserProgress'
+        streak:
+          $ref: '#/components/schemas/UserStreak'
+        newAchievements:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserAchievement'
+        pointTransactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PointTransaction'
+
+    PointTransaction:
+      type: object
+      required: [id, userId, sourceType, sourceId, pointsDelta, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        sourceType:
+          type: string
+          enum: [quiz_completion, correct_answer, streak_bonus, level_bonus, penalty, manual_adjustment]
+        sourceId:
+          type: integer
+          format: int64
+        pointsDelta:
+          type: integer
+        description:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    UserProgress:
+      type: object
+      required: [userId, totalPoints, currentLevelId, totalQuizzesAttempted, totalQuizzesCompleted, totalQuestionsAnswered, totalCorrectAnswers, totalWrongAnswers, accuracyPercentage, updatedAt]
+      properties:
+        userId:
+          type: integer
+          format: int64
+        totalPoints:
+          type: integer
+        currentLevelId:
+          type: integer
+          format: int64
+        totalQuizzesAttempted:
+          type: integer
+        totalQuizzesCompleted:
+          type: integer
+        totalQuestionsAnswered:
+          type: integer
+        totalCorrectAnswers:
+          type: integer
+        totalWrongAnswers:
+          type: integer
+        accuracyPercentage:
+          type: number
+          format: float
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserStreak:
+      type: object
+      required: [userId, currentStreak, maxStreak, updatedAt]
+      properties:
+        userId:
+          type: integer
+          format: int64
+        currentStreak:
+          type: integer
+        maxStreak:
+          type: integer
+        lastActivityDate:
+          type: string
+          format: date
+          nullable: true
+        streakStartDate:
+          type: string
+          format: date
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+
+    Level:
+      type: object
+      required: [id, code, name, minPoints, maxPoints]
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+        name:
+          type: string
+        minPoints:
+          type: integer
+        maxPoints:
+          type: integer
+        badgeIcon:
+          type: string
+          nullable: true
+        rewardDescription:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CurrentLevelResponse:
+      type: object
+      required: [currentLevel, totalPoints]
+      properties:
+        totalPoints:
+          type: integer
+        currentLevel:
+          $ref: '#/components/schemas/Level'
+        nextLevel:
+          allOf:
+            - $ref: '#/components/schemas/Level'
+          nullable: true
+        pointsToNextLevel:
+          type: integer
+          nullable: true
+
+    Achievement:
+      type: object
+      required: [id, code, title, achievementType, targetValue, rewardPoints, isActive]
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        achievementType:
+          type: string
+          enum: [correct_answers, quiz_completions, points_earned, streak_days]
+        targetValue:
+          type: integer
+        rewardPoints:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserAchievement:
+      type: object
+      required: [id, userId, achievementId, unlockedAt, rewardPoints]
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        achievementId:
+          type: integer
+          format: int64
+        unlockedAt:
+          type: string
+          format: date-time
+        rewardPoints:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        achievement:
+          $ref: '#/components/schemas/Achievement'
+
+    LeaderboardEntry:
+      type: object
+      required: [rank, userId, fullName, totalPoints]
+      properties:
+        rank:
+          type: integer
+        userId:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        totalPoints:
+          type: integer
+        currentLevelId:
+          type: integer
+          format: int64
+          nullable: true
+
+    LeaderboardResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeaderboardEntry'
+
+    CreateCategoryRequest:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        isActive:
+          type: boolean
+
+    CreateQuizRequest:
+      type: object
+      required: [categoryId, title, slug, difficulty, totalQuestions]
+      properties:
+        categoryId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+        totalQuestions:
+          type: integer
+        timeLimitSeconds:
+          type: integer
+        passingScore:
+          type: number
+          format: float
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateQuizRequest:
+      type: object
+      properties:
+        categoryId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+        totalQuestions:
+          type: integer
+        timeLimitSeconds:
+          type: integer
+        passingScore:
+          type: number
+          format: float
+        isActive:
+          type: boolean
+
+    CreateQuestionRequest:
+      type: object
+      required: [quizId, questionText, questionType, pointsReward, displayOrder]
+      properties:
+        quizId:
+          type: integer
+          format: int64
+        questionText:
+          type: string
+        questionType:
+          type: string
+          enum: [single_choice, multi_choice, true_false]
+        explanation:
+          type: string
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+        pointsReward:
+          type: integer
+        negativePoints:
+          type: integer
+        displayOrder:
+          type: integer
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateQuestionRequest:
+      type: object
+      properties:
+        questionText:
+          type: string
+        questionType:
+          type: string
+          enum: [single_choice, multi_choice, true_false]
+        explanation:
+          type: string
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+        pointsReward:
+          type: integer
+        negativePoints:
+          type: integer
+        displayOrder:
+          type: integer
+        isActive:
+          type: boolean
+
+    CreateQuestionOptionRequest:
+      type: object
+      required: [optionText, isCorrect, displayOrder]
+      properties:
+        optionText:
+          type: string
+        isCorrect:
+          type: boolean
+        displayOrder:
+          type: integer
+
+    UpdateQuestionOptionRequest:
+      type: object
+      properties:
+        optionText:
+          type: string
+        isCorrect:
+          type: boolean
+        displayOrder:
+          type: integer
+
+    CreateLevelRequest:
+      type: object
+      required: [code, name, minPoints, maxPoints]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        minPoints:
+          type: integer
+        maxPoints:
+          type: integer
+        badgeIcon:
+          type: string
+        rewardDescription:
+          type: string
+
+    UpdateLevelRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        minPoints:
+          type: integer
+        maxPoints:
+          type: integer
+        badgeIcon:
+          type: string
+        rewardDescription:
+          type: string
+
+    PaginatedQuizzes:
+      type: object
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Quiz'
+
+    PaginatedQuizAttempts:
+      type: object
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuizAttempt'
+
+    PaginatedPointTransactions:
+      type: object
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PointTransaction'
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+
+    ReadyResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ready
+        database:
+          type: string
+          example: up
