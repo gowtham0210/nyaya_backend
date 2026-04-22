@@ -1,6 +1,14 @@
 import { httpClient } from '@/lib/http-client';
 import { Category, Question, QuestionOption, Quiz } from '@/lib/types';
 
+export type BulkCategoryMutationResult = {
+  successIds: number[];
+  failures: Array<{
+    id: number;
+    error: unknown;
+  }>;
+};
+
 export type QuestionFormPayload = {
   quizId: number;
   questionText: string;
@@ -36,6 +44,57 @@ export async function saveCategory(categoryId: number | null, payload: Omit<Cate
 
 export async function deactivateCategory(categoryId: number) {
   await httpClient.delete(`/admin/categories/${categoryId}`);
+}
+
+export async function updateCategoryStatus(categoryId: number, isActive: boolean) {
+  const response = await httpClient.patch<Category>(`/admin/categories/${categoryId}`, {
+    isActive,
+  });
+
+  return response.data;
+}
+
+async function settleCategoryMutations(
+  categoryIds: number[],
+  mutation: (categoryId: number) => Promise<unknown>
+): Promise<BulkCategoryMutationResult> {
+  if (!categoryIds.length) {
+    return {
+      successIds: [],
+      failures: [],
+    };
+  }
+
+  const settledResults = await Promise.allSettled(categoryIds.map((categoryId) => mutation(categoryId)));
+
+  return settledResults.reduce<BulkCategoryMutationResult>(
+    (result, settled, index) => {
+      const categoryId = categoryIds[index];
+
+      if (settled.status === 'fulfilled') {
+        result.successIds.push(categoryId);
+      } else {
+        result.failures.push({
+          id: categoryId,
+          error: settled.reason,
+        });
+      }
+
+      return result;
+    },
+    {
+      successIds: [],
+      failures: [],
+    }
+  );
+}
+
+export async function bulkDeleteCategories(categoryIds: number[]) {
+  return settleCategoryMutations(categoryIds, deactivateCategory);
+}
+
+export async function bulkUpdateCategoryStatus(categoryIds: number[], isActive: boolean) {
+  return settleCategoryMutations(categoryIds, (categoryId) => updateCategoryStatus(categoryId, isActive));
 }
 
 export async function getQuizzes(params: { categoryId?: number | null; showInactive?: boolean }) {

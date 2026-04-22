@@ -41,4 +41,25 @@ describe('content schemas', () => {
     expect(result.success).toBe(false);
     expect(result.error?.issues.some((issue) => issue.message.includes('exactly one correct option'))).toBe(true);
   });
+
+  it('rejects duplicate option display orders at the schema boundary', () => {
+    const result = questionSchema.safeParse({
+      quizId: 1,
+      questionText: 'Which article guarantees equality before law?',
+      questionType: 'multiple_choice',
+      explanation: 'Article 14 does.',
+      difficulty: 'medium',
+      pointsReward: 10,
+      negativePoints: 0,
+      displayOrder: 1,
+      isActive: true,
+      options: [
+        { optionText: 'Article 14', isCorrect: true, displayOrder: 1 },
+        { optionText: 'Article 19', isCorrect: false, displayOrder: 1 },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.some((issue) => issue.message.includes('display orders must be unique'))).toBe(true);
+  });
 });

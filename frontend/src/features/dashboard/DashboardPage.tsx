@@ -15,6 +15,7 @@ export function DashboardPage() {
   });
 
   const data = dashboardQuery.data;
+  const isInitialLoading = dashboardQuery.isPending && !data;
 
   return (
     <div className="space-y-6">
@@ -67,7 +68,11 @@ export function DashboardPage() {
             <Badge>{dashboardQuery.isFetching ? 'Refreshing' : 'Live'}</Badge>
           </div>
 
-          {data?.topQuizzes?.length ? (
+          {isInitialLoading ? (
+            <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+              Loading dashboard data...
+            </div>
+          ) : data?.topQuizzes?.length ? (
             <div className="mt-5 overflow-x-auto">
               <table className="min-w-full text-left text-sm">
                 <thead className="text-slate-500">
@@ -105,7 +110,11 @@ export function DashboardPage() {
           <p className="text-sm font-semibold text-slate-900">Global leaderboard preview</p>
           <p className="mt-1 text-sm text-slate-500">Top performers across the entire platform.</p>
 
-          {data?.leaderboardPreview?.length ? (
+          {isInitialLoading ? (
+            <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+              Loading dashboard data...
+            </div>
+          ) : data?.leaderboardPreview?.length ? (
             <div className="mt-5 space-y-3">
               {data.leaderboardPreview.map((entry) => (
                 <div key={entry.userId} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
@@ -134,7 +143,11 @@ export function DashboardPage() {
         <Card className="p-6">
           <p className="text-sm font-semibold text-slate-900">Recently added questions</p>
           <div className="mt-4 space-y-3">
-            {data?.recentQuestions?.length ? (
+            {isInitialLoading ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                Loading dashboard data...
+              </div>
+            ) : data?.recentQuestions?.length ? (
               data.recentQuestions.map((question) => (
                 <div key={question.id} className="rounded-2xl border border-slate-200 px-4 py-3">
                   <p className="font-medium text-slate-900">{question.questionText}</p>
@@ -156,7 +169,11 @@ export function DashboardPage() {
         <Card className="p-6">
           <p className="text-sm font-semibold text-slate-900">Recent quiz attempts</p>
           <div className="mt-4 space-y-3">
-            {data?.recentAttempts?.length ? (
+            {isInitialLoading ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                Loading dashboard data...
+              </div>
+            ) : data?.recentAttempts?.length ? (
               data.recentAttempts.map((attempt) => (
                 <div key={attempt.id} className="rounded-2xl border border-slate-200 px-4 py-3">
                   <div className="flex items-center justify-between gap-3">

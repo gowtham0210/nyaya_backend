@@ -166,6 +166,13 @@ export function QuestionsPage() {
       return haystack.includes(search.toLowerCase());
     });
   }, [orderedQuestions, search]);
+  const isSelectionBootstrapping =
+    (categoriesQuery.isPending && !categoriesQuery.data) ||
+    (!categoryId && Boolean(categoriesQuery.data?.length)) ||
+    (Boolean(categoryId) && quizzesQuery.isPending && !quizzesQuery.data) ||
+    (Boolean(categoryId) && !quizId && Boolean(quizzesQuery.data?.length));
+  const isInitialQuestionLoading = Boolean(quizId) && questionsQuery.isPending && !questionsQuery.data;
+  const isLoadingState = isSelectionBootstrapping || isInitialQuestionLoading;
 
   const selectedQuiz = quizzesQuery.data?.find((quiz) => quiz.id === quizId) || questionsQuery.data?.quiz;
 
@@ -263,6 +270,7 @@ export function QuestionsPage() {
       >
         <Select
           className="sm:w-52"
+          aria-label="Filter questions by category"
           value={categoryId || ''}
           onChange={(event) => setCategoryId(event.target.value ? Number(event.target.value) : null)}
         >
@@ -276,6 +284,7 @@ export function QuestionsPage() {
 
         <Select
           className="sm:w-64"
+          aria-label="Select quiz"
           value={quizId || ''}
           onChange={(event) => setQuizId(event.target.value ? Number(event.target.value) : null)}
         >
@@ -310,18 +319,29 @@ export function QuestionsPage() {
           <div className="flex flex-wrap items-center gap-3">
             <Badge>{selectedQuiz.title}</Badge>
             <Badge tone="muted">{selectedQuiz.difficulty}</Badge>
-            <Badge tone={questionsQuery.data?.quiz.totalQuestions === filteredQuestions.length ? 'success' : 'warning'}>
-              Saved count {questionsQuery.data?.quiz.totalQuestions || 0} / loaded {questionsQuery.data?.items.length || 0}
-            </Badge>
+            {questionsQuery.data ? (
+              <Badge tone={questionsQuery.data.quiz.totalQuestions === filteredQuestions.length ? 'success' : 'warning'}>
+                Saved count {questionsQuery.data.quiz.totalQuestions} / loaded {questionsQuery.data.items.length}
+              </Badge>
+            ) : (
+              <Badge tone="muted">Loading question totals...</Badge>
+            )}
           </div>
           <p className="mt-3 text-sm text-slate-500">
-            Drag questions by the grip handle to reorder them. Question totals are reconciled silently in the background.
+            {questionsQuery.data
+              ? 'Drag questions by the grip handle to reorder them. Question totals are reconciled silently in the background.'
+              : 'Fetching the latest question set for this quiz.'}
           </p>
         </Card>
       ) : null}
 
       <div className="space-y-4">
-        {filteredQuestions.length ? (
+        {isLoadingState ? (
+          <EmptyState
+            title="Loading questions..."
+            description="Fetching the available quizzes and question records for the current selection."
+          />
+        ) : filteredQuestions.length ? (
           filteredQuestions.map((question) => (
             <Card
               key={question.id}
@@ -333,7 +353,11 @@ export function QuestionsPage() {
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex gap-4">
-                  <button className="mt-1 rounded-2xl bg-slate-100 p-2 text-slate-500">
+                  <button
+                    type="button"
+                    aria-label={`Drag question ${question.displayOrder}`}
+                    className="mt-1 rounded-2xl bg-slate-100 p-2 text-slate-500"
+                  >
                     <GripVertical className="h-4 w-4" />
                   </button>
                   <div>
@@ -375,10 +399,12 @@ export function QuestionsPage() {
           ))
         ) : (
           <EmptyState
-            title="No questions available"
+            title={quizId ? (search ? 'No questions match your search' : 'No questions available') : 'No quiz selected'}
             description={
               quizId
-                ? 'Create the first question for this quiz or use the bulk import wizard.'
+                ? search
+                  ? 'Try a different search term or clear the filters to load more results.'
+                  : 'Create the first question for this quiz or use the bulk import wizard.'
                 : 'Choose a category and quiz to start working on question content.'
             }
           />
@@ -487,6 +513,7 @@ export function QuestionsPage() {
                     <div className="mt-7 flex justify-end">
                       <Button
                         variant="ghost"
+                        aria-label={`Remove option ${index + 1}`}
                         className="text-red-600 hover:bg-red-50"
                         onClick={() => optionFields.remove(index)}
                       >

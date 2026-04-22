@@ -1,0 +1,64 @@
+**the agent reading this file can be omitted because this is for user reference**
+login password
+admin@nyaya.local
+NyayaAdmin@2026
+
+how to prompt for SDD
+Use SDD like this for your project:
+
+1. Describe the feature clearly.
+2. Let Spec Kit turn it into a spec.
+3. Let it make a plan.
+4. Let it make tasks.
+5. Then start coding.
+
+For your app, every feature prompt should mention:
+- which page/route changes
+- which API endpoint it uses
+- who can access it (`admin` etc.)
+- form fields/validation if any
+- loading, empty, and error states
+- if backend is missing, say “show feature locked page”
+
+Use these prompts:
+
+```text
+$speckit-specify
+Build a Users management feature for the admin portal.
+Route: /users
+Only admins can access it.
+Use the existing auth/session flow.
+Fetch users from the approved backend contract.
+Show loading, empty, error, and success states.
+If backend endpoints are missing, keep the page feature-locked instead of faking behavior.
+Allow search by name and email.
+```
+
+Then:
+
+```text
+$speckit-plan
+Plan this feature using the existing frontend structure:
+- keep code inside src/features/users
+- update src/app/routes.tsx if needed
+- use React Query for fetching
+- use Zod for form/filter validation
+- use existing shared UI components
+- avoid new abstractions unless really needed
+```
+
+Then:
+
+```text
+$speckit-tasks
+Generate implementation tasks for this feature.
+Make tasks small, frontend-specific, and independently testable.
+Include API, validation, auth, UI states, and tests where needed.
+```
+
+Simple rule: first say what you want, not how to code it.  
+If you want, I can give you a ready-made prompt template you can reuse for every new feature.
+
+
+next improvement the category page, the search component create category component, show inactive component are placed properly
+are placed randomly in the layout. fix this ui mistake.

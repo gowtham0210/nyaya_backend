@@ -29,6 +29,7 @@ export function LevelsPage() {
     queryKey: ['levels'],
     queryFn: getLevels,
   });
+  const isInitialLoading = levelsQuery.isPending && !levelsQuery.data;
 
   const form = useForm<LevelFormValues>({
     resolver: zodResolver(levelSchema),
@@ -102,7 +103,11 @@ export function LevelsPage() {
           This visual timeline helps editors spot threshold jumps before saving new ranges.
         </p>
 
-        {ladderSegments.length ? (
+        {isInitialLoading ? (
+          <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-sm text-slate-500">
+            Loading levels...
+          </div>
+        ) : ladderSegments.length ? (
           <div className="mt-5 space-y-4">
             <div className="flex overflow-hidden rounded-full bg-slate-100">
               {ladderSegments.map((level) => (
@@ -137,7 +142,13 @@ export function LevelsPage() {
       </Card>
 
       <Card className="overflow-hidden">
-        {levelsQuery.data?.length ? (
+        {isInitialLoading ? (
+          <div className="p-6">
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-sm text-slate-500">
+              Loading levels...
+            </div>
+          </div>
+        ) : levelsQuery.data?.length ? (
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">

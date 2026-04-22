@@ -399,6 +399,7 @@ export function BulkImportWizard({ open, quizId, onClose, onComplete }: BulkImpo
               </div>
               <Input
                 type="file"
+                aria-label="Upload question file"
                 accept=".csv,.xlsx,.xls,.json"
                 onChange={async (event) => {
                   const file = event.target.files?.[0];
@@ -433,6 +434,7 @@ export function BulkImportWizard({ open, quizId, onClose, onComplete }: BulkImpo
               </div>
               <Textarea
                 rows={12}
+                aria-label="Paste question JSON"
                 value={manualJson}
                 onChange={(event) => setManualJson(event.target.value)}
                 placeholder={JSON.stringify(bulkTemplateQuestions, null, 2)}

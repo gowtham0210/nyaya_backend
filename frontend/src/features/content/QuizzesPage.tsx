@@ -93,6 +93,8 @@ export function QuizzesPage() {
       return haystack.includes(search.toLowerCase());
     });
   }, [categoriesQuery.data, quizzesQuery.data, search]);
+  const isInitialLoading = quizzesQuery.isPending && !quizzesQuery.data;
+  const isFilterEmpty = Boolean(quizzesQuery.data?.length) && !filteredQuizzes.length;
 
   function openCreateSheet() {
     setEditingQuiz(null);
@@ -142,6 +144,7 @@ export function QuizzesPage() {
       >
         <Select
           className="sm:w-56"
+          aria-label="Filter quizzes by category"
           value={categoryId || ''}
           onChange={(event) => setCategoryId(event.target.value ? Number(event.target.value) : null)}
         >
@@ -165,7 +168,14 @@ export function QuizzesPage() {
       </PageHeader>
 
       <Card className="overflow-hidden">
-        {filteredQuizzes.length ? (
+        {isInitialLoading ? (
+          <div className="p-6">
+            <EmptyState
+              title="Loading quizzes..."
+              description="Fetching quiz metadata for the current category filter."
+            />
+          </div>
+        ) : filteredQuizzes.length ? (
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
@@ -217,8 +227,12 @@ export function QuizzesPage() {
         ) : (
           <div className="p-6">
             <EmptyState
-              title="No quizzes found"
-              description="Create the first quiz or adjust your filters to load more results."
+              title={isFilterEmpty ? 'No quizzes match your filters' : 'No quizzes found'}
+              description={
+                isFilterEmpty
+                  ? 'Try a different search term or clear the filters to load more results.'
+                  : 'Create the first quiz or adjust your filters to load more results.'
+              }
             />
           </div>
         )}
