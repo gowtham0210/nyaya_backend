@@ -11,7 +11,7 @@ type SheetProps = PropsWithChildren<{
 export function Sheet({ open, title, description, onClose, children }: SheetProps) {
   return (
     <Modal open={open} title={title} description={description} onClose={onClose} widthClassName="max-w-3xl">
-      <div className="mt-6">{children}</div>
+      <div className="mt-6 flex max-h-[calc(100vh-10rem)] min-h-0 flex-col">{children}</div>
     </Modal>
   );
 }

@@ -394,111 +394,116 @@ export function QuestionsPage() {
           setEditingQuestion(null);
         }}
       >
-        <form className="grid gap-5" onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}>
-          <Field label="Question text" error={form.formState.errors.questionText?.message}>
-            <Textarea rows={4} {...form.register('questionText')} placeholder="Write the question shown to the learner." />
-          </Field>
+        <form
+          className="flex min-h-0 flex-1 flex-col"
+          onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}
+        >
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-2">
+            <Field label="Question text" error={form.formState.errors.questionText?.message}>
+              <Textarea rows={4} {...form.register('questionText')} placeholder="Write the question shown to the learner." />
+            </Field>
 
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-            <Field label="Question type" error={form.formState.errors.questionType?.message}>
-              <Select {...form.register('questionType')}>
-                {QUESTION_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Difficulty" error={form.formState.errors.difficulty?.message}>
-              <Select {...form.register('difficulty')}>
-                {QUIZ_DIFFICULTIES.map((difficulty) => (
-                  <option key={difficulty} value={difficulty}>
-                    {difficulty}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Points reward" error={form.formState.errors.pointsReward?.message}>
-              <Input type="number" min={0} {...form.register('pointsReward')} />
-            </Field>
-            <Field label="Negative points" error={form.formState.errors.negativePoints?.message}>
-              <Input type="number" min={0} {...form.register('negativePoints')} />
-            </Field>
-          </div>
-
-          <div className="grid gap-5 md:grid-cols-2">
-            <Field label="Display order" error={form.formState.errors.displayOrder?.message}>
-              <Input type="number" min={1} {...form.register('displayOrder')} />
-            </Field>
-            <label className="mt-7 flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
-              <Checkbox checked={form.watch('isActive')} onChange={(event) => form.setValue('isActive', event.target.checked)} />
-              Keep this question active
-            </label>
-          </div>
-
-          <Field label="Explanation" error={form.formState.errors.explanation?.message}>
-            <Textarea rows={4} {...form.register('explanation')} placeholder="Optional explanation shown after answering." />
-          </Field>
-
-          <div className="rounded-3xl border border-slate-200 p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">Answer options</p>
-                <p className="mt-1 text-sm text-slate-500">At least one correct option is required.</p>
-              </div>
-              <Button
-                variant="secondary"
-                onClick={() =>
-                  optionFields.append({
-                    optionText: '',
-                    isCorrect: false,
-                    displayOrder: optionFields.fields.length + 1,
-                  })
-                }
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add option
-              </Button>
+            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+              <Field label="Question type" error={form.formState.errors.questionType?.message}>
+                <Select {...form.register('questionType')}>
+                  {QUESTION_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Difficulty" error={form.formState.errors.difficulty?.message}>
+                <Select {...form.register('difficulty')}>
+                  {QUIZ_DIFFICULTIES.map((difficulty) => (
+                    <option key={difficulty} value={difficulty}>
+                      {difficulty}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Points reward" error={form.formState.errors.pointsReward?.message}>
+                <Input type="number" min={0} {...form.register('pointsReward')} />
+              </Field>
+              <Field label="Negative points" error={form.formState.errors.negativePoints?.message}>
+                <Input type="number" min={0} {...form.register('negativePoints')} />
+              </Field>
             </div>
 
-            <div className="mt-5 space-y-4">
-              {optionFields.fields.map((field, index) => (
-                <div key={field.id} className="grid gap-4 rounded-2xl border border-slate-200 p-4 lg:grid-cols-[minmax(0,1fr)_140px_140px_60px]">
-                  <Field
-                    label={`Option ${index + 1}`}
-                    error={form.formState.errors.options?.[index]?.optionText?.message}
-                  >
-                    <Input {...form.register(`options.${index}.optionText`)} placeholder="Option text" />
-                  </Field>
-                  <Field label="Display order" error={form.formState.errors.options?.[index]?.displayOrder?.message}>
-                    <Input type="number" min={1} {...form.register(`options.${index}.displayOrder`)} />
-                  </Field>
-                  <label className="mt-7 flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
-                    <Checkbox
-                      checked={form.watch(`options.${index}.isCorrect`)}
-                      onChange={(event) => form.setValue(`options.${index}.isCorrect`, event.target.checked)}
-                    />
-                    Correct
-                  </label>
-                  <div className="mt-7 flex justify-end">
-                    <Button
-                      variant="ghost"
-                      className="text-red-600 hover:bg-red-50"
-                      onClick={() => optionFields.remove(index)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+            <div className="grid gap-5 md:grid-cols-2">
+              <Field label="Display order" error={form.formState.errors.displayOrder?.message}>
+                <Input type="number" min={1} {...form.register('displayOrder')} />
+              </Field>
+              <label className="mt-7 flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
+                <Checkbox checked={form.watch('isActive')} onChange={(event) => form.setValue('isActive', event.target.checked)} />
+                Keep this question active
+              </label>
+            </div>
+
+            <Field label="Explanation" error={form.formState.errors.explanation?.message}>
+              <Textarea rows={4} {...form.register('explanation')} placeholder="Optional explanation shown after answering." />
+            </Field>
+
+            <div className="rounded-3xl border border-slate-200 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Answer options</p>
+                  <p className="mt-1 text-sm text-slate-500">At least one correct option is required.</p>
                 </div>
-              ))}
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    optionFields.append({
+                      optionText: '',
+                      isCorrect: false,
+                      displayOrder: optionFields.fields.length + 1,
+                    })
+                  }
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add option
+                </Button>
+              </div>
 
-              {typeof form.formState.errors.options?.message === 'string' ? (
-                <p className="text-sm font-medium text-red-600">{form.formState.errors.options.message}</p>
-              ) : null}
+              <div className="mt-5 space-y-4">
+                {optionFields.fields.map((field, index) => (
+                  <div key={field.id} className="grid gap-4 rounded-2xl border border-slate-200 p-4 lg:grid-cols-[minmax(0,1fr)_140px_140px_60px]">
+                    <Field
+                      label={`Option ${index + 1}`}
+                      error={form.formState.errors.options?.[index]?.optionText?.message}
+                    >
+                      <Input {...form.register(`options.${index}.optionText`)} placeholder="Option text" />
+                    </Field>
+                    <Field label="Display order" error={form.formState.errors.options?.[index]?.displayOrder?.message}>
+                      <Input type="number" min={1} {...form.register(`options.${index}.displayOrder`)} />
+                    </Field>
+                    <label className="mt-7 flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
+                      <Checkbox
+                        checked={form.watch(`options.${index}.isCorrect`)}
+                        onChange={(event) => form.setValue(`options.${index}.isCorrect`, event.target.checked)}
+                      />
+                      Correct
+                    </label>
+                    <div className="mt-7 flex justify-end">
+                      <Button
+                        variant="ghost"
+                        className="text-red-600 hover:bg-red-50"
+                        onClick={() => optionFields.remove(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+
+                {typeof form.formState.errors.options?.message === 'string' ? (
+                  <p className="text-sm font-medium text-red-600">{form.formState.errors.options.message}</p>
+                ) : null}
+              </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-3">
+          <div className="mt-5 flex justify-end gap-3 border-t border-slate-200 bg-white pt-4">
             <Button variant="secondary" onClick={() => setSheetOpen(false)}>
               Cancel
             </Button>
