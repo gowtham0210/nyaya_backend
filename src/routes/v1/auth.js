@@ -71,7 +71,7 @@ router.post(
       await ensureUserSummaryRows(connection, Number(result.insertId));
 
       const [rows] = await connection.execute(
-        'SELECT id, full_name, email, phone, email_verified, status, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
+        'SELECT id, full_name, email, phone, avatar_url, email_verified, status, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
         [Number(result.insertId)]
       );
       const user = rows[0];

@@ -3,6 +3,7 @@ const { pool } = require('../../config/database');
 const { asyncHandler } = require('../../utils/async-handler');
 const { notFound, badRequest } = require('../../utils/errors');
 const { buildUpdateClause, parseBoolean, parseId, requireFields } = require('../../utils/sql');
+const { createImageUploader, deleteUploadedFile, publicUrlFor } = require('../../middleware/upload');
 const {
   serializeCategory,
   serializeLeaderboardEntry,
@@ -13,6 +14,32 @@ const {
 } = require('../../utils/serializers');
 
 const router = express.Router();
+const categoryImageUpload = createImageUploader('categories');
+const quizImageUpload = createImageUploader('quizzes');
+
+// Shared by the category and quiz image-upload routes below: swap in the new
+// file, delete the one it replaced, return the updated row.
+async function replaceEntityImage({ table, subdir, id, file, notFoundMessage }) {
+  if (!file) {
+    throw badRequest('An image file is required (multipart field "image")');
+  }
+
+  const [rows] = await pool.execute(`SELECT image_url FROM ${table} WHERE id = ? LIMIT 1`, [id]);
+
+  if (!rows[0]) {
+    throw notFound(notFoundMessage);
+  }
+
+  const imageUrl = publicUrlFor(subdir, file.filename);
+  await pool.execute(`UPDATE ${table} SET image_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [
+    imageUrl,
+    id,
+  ]);
+  deleteUploadedFile(rows[0].image_url);
+
+  const [updatedRows] = await pool.execute(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [id]);
+  return updatedRows[0];
+}
 
 router.get(
   '/dashboard',
@@ -363,6 +390,23 @@ router.delete(
 );
 
 router.post(
+  '/categories/:categoryId/image',
+  categoryImageUpload,
+  asyncHandler(async (req, res) => {
+    const categoryId = parseId(req.params.categoryId, 'categoryId');
+    const category = await replaceEntityImage({
+      table: 'categories',
+      subdir: 'categories',
+      id: categoryId,
+      file: req.file,
+      notFoundMessage: 'Category not found',
+    });
+
+    res.json(serializeCategory(category));
+  })
+);
+
+router.post(
   '/quizzes',
   asyncHandler(async (req, res) => {
     const payload = req.body || {};
@@ -451,6 +495,23 @@ router.delete(
     }
 
     res.status(204).send();
+  })
+);
+
+router.post(
+  '/quizzes/:quizId/image',
+  quizImageUpload,
+  asyncHandler(async (req, res) => {
+    const quizId = parseId(req.params.quizId, 'quizId');
+    const quiz = await replaceEntityImage({
+      table: 'quizzes',
+      subdir: 'quizzes',
+      id: quizId,
+      file: req.file,
+      notFoundMessage: 'Quiz not found',
+    });
+
+    res.json(serializeQuiz(quiz));
   })
 );
 
