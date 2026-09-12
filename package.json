@@ -10,7 +10,8 @@
     "db:init": "node src/scripts/init-db.js",
     "db:migrate": "node src/scripts/migrate.js",
     "db:seed-admin": "node src/scripts/seed-admin.js",
-    "db:seed-content": "node src/scripts/seed-content.js"
+    "db:seed-content": "node src/scripts/seed-content.js",
+    "test": "node --test src/tests/*.test.js"
   },
   "keywords": [
     "api",
