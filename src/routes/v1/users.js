@@ -40,7 +40,7 @@ router.patch(
     );
 
     const [rows] = await pool.execute(
-      'SELECT id, full_name, email, phone, status, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, full_name, email, phone, email_verified, status, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
       [req.auth.userId]
     );
 

@@ -1,8 +1,10 @@
 const express = require('express');
 const cors = require('cors');
+const pinoHttp = require('pino-http');
 const apiRoutesV1 = require('./routes/v1');
 const { corsOrigin } = require('./config/env');
 const { AppError } = require('./utils/errors');
+const logger = require('./utils/logger');
 
 const app = express();
 
@@ -17,6 +19,13 @@ const corsOptions =
         credentials: true,
       };
 
+app.use(
+  pinoHttp({
+    logger,
+    // Access tokens and refresh cookies are secrets; never let them reach the logs.
+    redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
+  })
+);
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -37,7 +46,7 @@ app.use((req, res) => {
 });
 
 app.use((error, req, res, next) => {
-  console.error(error);
+  (req.log || logger).error({ err: error }, 'Request failed');
 
   if (error instanceof AppError) {
     return res.status(error.statusCode).json({

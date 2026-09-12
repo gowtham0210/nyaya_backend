@@ -13,7 +13,7 @@ async function authenticate(req, res, next) {
 
     const payload = verifyAccessToken(token);
     const [rows] = await pool.execute(
-      'SELECT id, full_name, email, phone, status, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, full_name, email, phone, email_verified, status, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
       [Number(payload.sub)]
     );
     const user = rows[0];

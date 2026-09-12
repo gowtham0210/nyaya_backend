@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const { badRequest } = require('./errors');
 const { adminEmails, jwt: jwtConfig, nodeEnv } = require('../config/env');
 
 function isAdminEmail(email) {
@@ -68,7 +69,14 @@ async function comparePassword(password, hash) {
   return bcrypt.compare(password, hash);
 }
 
+function assertValidPassword(password, fieldName = 'password') {
+  if (String(password).length < 8) {
+    throw badRequest(`${fieldName} must be at least 8 characters long`);
+  }
+}
+
 module.exports = {
+  assertValidPassword,
   generateTokenPair,
   verifyAccessToken,
   verifyRefreshToken,

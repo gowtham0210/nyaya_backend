@@ -24,6 +24,7 @@ function serializeUser(row) {
     fullName: row.full_name,
     email: row.email,
     phone: row.phone,
+    emailVerified: Boolean(row.email_verified),
     status: row.status,
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
