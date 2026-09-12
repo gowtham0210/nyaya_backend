@@ -3,6 +3,7 @@ const { pool } = require('../../config/database');
 const { asyncHandler } = require('../../utils/async-handler');
 const { notFound, badRequest } = require('../../utils/errors');
 const { buildUpdateClause, parseBoolean, parseId, requireFields } = require('../../utils/sql');
+const { getPagination } = require('../../utils/pagination');
 const { createImageUploader, deleteUploadedFile, publicUrlFor } = require('../../middleware/upload');
 const {
   serializeCategory,
@@ -738,6 +739,67 @@ router.patch(
 
     const [rows] = await pool.execute('SELECT * FROM levels WHERE id = ? LIMIT 1', [levelId]);
     res.json(serializeLevel(rows[0]));
+  })
+);
+
+router.get(
+  '/audit-log',
+  asyncHandler(async (req, res) => {
+    const { page, size, offset } = getPagination(req.query);
+    const conditions = [];
+    const values = [];
+
+    if (req.query.adminUserId !== undefined) {
+      conditions.push('l.admin_user_id = ?');
+      values.push(parseId(req.query.adminUserId, 'adminUserId'));
+    }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    // pool.query rather than pool.execute: MySQL rejects bound parameters
+    // in a prepared statement's LIMIT/OFFSET clause. The bounds come from
+    // getPagination, which only ever returns validated integers.
+    const [rows] = await pool.query(
+      `
+        SELECT l.*, u.full_name AS admin_full_name, u.email AS admin_email
+        FROM admin_audit_log l
+        INNER JOIN users u ON u.id = l.admin_user_id
+        ${whereClause}
+        ORDER BY l.created_at DESC, l.id DESC
+        LIMIT ? OFFSET ?
+      `,
+      [...values, size, offset]
+    );
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM admin_audit_log l ${whereClause}`,
+      values
+    );
+
+    res.json({
+      page,
+      size,
+      total: Number(countRows[0].total),
+      items: rows.map((row) => ({
+        id: Number(row.id),
+        adminUserId: Number(row.admin_user_id),
+        adminFullName: row.admin_full_name,
+        adminEmail: row.admin_email,
+        method: row.method,
+        path: row.path,
+        statusCode: Number(row.status_code),
+        // A body long enough to get truncated (see audit-log.js) is no longer
+        // valid JSON; fall back to the raw truncated text rather than throw.
+        requestBody: row.request_body
+          ? (() => {
+              try {
+                return JSON.parse(row.request_body);
+              } catch {
+                return row.request_body;
+              }
+            })()
+          : null,
+        createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
+      })),
+    });
   })
 );
 
