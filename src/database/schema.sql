@@ -3,7 +3,15 @@ CREATE TABLE IF NOT EXISTS users (
   full_name VARCHAR(150) NOT NULL,
   email VARCHAR(191) NOT NULL,
   phone VARCHAR(25) DEFAULT NULL,
+  avatar_url VARCHAR(500) DEFAULT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  password_reset_hash CHAR(64) DEFAULT NULL,
+  password_reset_expires_at DATETIME DEFAULT NULL,
+  password_reset_attempts INT NOT NULL DEFAULT 0,
+  email_verified TINYINT(1) NOT NULL DEFAULT 0,
+  email_verification_hash CHAR(64) DEFAULT NULL,
+  email_verification_expires_at DATETIME DEFAULT NULL,
+  email_verification_attempts INT NOT NULL DEFAULT 0,
   status VARCHAR(30) NOT NULL DEFAULT 'active',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -36,6 +44,7 @@ CREATE TABLE IF NOT EXISTS categories (
   name VARCHAR(120) NOT NULL,
   slug VARCHAR(150) NOT NULL,
   description TEXT DEFAULT NULL,
+  image_url VARCHAR(500) DEFAULT NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -65,6 +74,7 @@ CREATE TABLE IF NOT EXISTS quizzes (
   title VARCHAR(180) NOT NULL,
   slug VARCHAR(180) NOT NULL,
   description TEXT DEFAULT NULL,
+  image_url VARCHAR(500) DEFAULT NULL,
   difficulty_level VARCHAR(30) NOT NULL DEFAULT 'medium',
   total_questions INT NOT NULL DEFAULT 0,
   time_limit_seconds INT DEFAULT NULL,
@@ -275,6 +285,23 @@ CREATE TABLE IF NOT EXISTS user_achievements (
     ON DELETE CASCADE,
   CONSTRAINT fk_user_achievements_achievement
     FOREIGN KEY (achievement_id) REFERENCES achievements (id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  admin_user_id BIGINT UNSIGNED NOT NULL,
+  method VARCHAR(10) NOT NULL,
+  path VARCHAR(500) NOT NULL,
+  status_code SMALLINT UNSIGNED NOT NULL,
+  request_body TEXT DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_admin_audit_log_admin_user_id (admin_user_id),
+  KEY idx_admin_audit_log_created_at (created_at),
+  CONSTRAINT fk_admin_audit_log_user
+    FOREIGN KEY (admin_user_id) REFERENCES users (id)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -3,6 +3,8 @@ const { pool } = require('../../config/database');
 const { asyncHandler } = require('../../utils/async-handler');
 const { notFound, badRequest } = require('../../utils/errors');
 const { buildUpdateClause, parseBoolean, parseId, requireFields } = require('../../utils/sql');
+const { getPagination } = require('../../utils/pagination');
+const { createImageUploader, deleteUploadedFile, publicUrlFor } = require('../../middleware/upload');
 const {
   serializeCategory,
   serializeLeaderboardEntry,
@@ -13,6 +15,32 @@ const {
 } = require('../../utils/serializers');
 
 const router = express.Router();
+const categoryImageUpload = createImageUploader('categories');
+const quizImageUpload = createImageUploader('quizzes');
+
+// Shared by the category and quiz image-upload routes below: swap in the new
+// file, delete the one it replaced, return the updated row.
+async function replaceEntityImage({ table, subdir, id, file, notFoundMessage }) {
+  if (!file) {
+    throw badRequest('An image file is required (multipart field "image")');
+  }
+
+  const [rows] = await pool.execute(`SELECT image_url FROM ${table} WHERE id = ? LIMIT 1`, [id]);
+
+  if (!rows[0]) {
+    throw notFound(notFoundMessage);
+  }
+
+  const imageUrl = publicUrlFor(subdir, file.filename);
+  await pool.execute(`UPDATE ${table} SET image_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [
+    imageUrl,
+    id,
+  ]);
+  deleteUploadedFile(rows[0].image_url);
+
+  const [updatedRows] = await pool.execute(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [id]);
+  return updatedRows[0];
+}
 
 router.get(
   '/dashboard',
@@ -363,6 +391,23 @@ router.delete(
 );
 
 router.post(
+  '/categories/:categoryId/image',
+  categoryImageUpload,
+  asyncHandler(async (req, res) => {
+    const categoryId = parseId(req.params.categoryId, 'categoryId');
+    const category = await replaceEntityImage({
+      table: 'categories',
+      subdir: 'categories',
+      id: categoryId,
+      file: req.file,
+      notFoundMessage: 'Category not found',
+    });
+
+    res.json(serializeCategory(category));
+  })
+);
+
+router.post(
   '/quizzes',
   asyncHandler(async (req, res) => {
     const payload = req.body || {};
@@ -451,6 +496,23 @@ router.delete(
     }
 
     res.status(204).send();
+  })
+);
+
+router.post(
+  '/quizzes/:quizId/image',
+  quizImageUpload,
+  asyncHandler(async (req, res) => {
+    const quizId = parseId(req.params.quizId, 'quizId');
+    const quiz = await replaceEntityImage({
+      table: 'quizzes',
+      subdir: 'quizzes',
+      id: quizId,
+      file: req.file,
+      notFoundMessage: 'Quiz not found',
+    });
+
+    res.json(serializeQuiz(quiz));
   })
 );
 
@@ -677,6 +739,67 @@ router.patch(
 
     const [rows] = await pool.execute('SELECT * FROM levels WHERE id = ? LIMIT 1', [levelId]);
     res.json(serializeLevel(rows[0]));
+  })
+);
+
+router.get(
+  '/audit-log',
+  asyncHandler(async (req, res) => {
+    const { page, size, offset } = getPagination(req.query);
+    const conditions = [];
+    const values = [];
+
+    if (req.query.adminUserId !== undefined) {
+      conditions.push('l.admin_user_id = ?');
+      values.push(parseId(req.query.adminUserId, 'adminUserId'));
+    }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    // pool.query rather than pool.execute: MySQL rejects bound parameters
+    // in a prepared statement's LIMIT/OFFSET clause. The bounds come from
+    // getPagination, which only ever returns validated integers.
+    const [rows] = await pool.query(
+      `
+        SELECT l.*, u.full_name AS admin_full_name, u.email AS admin_email
+        FROM admin_audit_log l
+        INNER JOIN users u ON u.id = l.admin_user_id
+        ${whereClause}
+        ORDER BY l.created_at DESC, l.id DESC
+        LIMIT ? OFFSET ?
+      `,
+      [...values, size, offset]
+    );
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM admin_audit_log l ${whereClause}`,
+      values
+    );
+
+    res.json({
+      page,
+      size,
+      total: Number(countRows[0].total),
+      items: rows.map((row) => ({
+        id: Number(row.id),
+        adminUserId: Number(row.admin_user_id),
+        adminFullName: row.admin_full_name,
+        adminEmail: row.admin_email,
+        method: row.method,
+        path: row.path,
+        statusCode: Number(row.status_code),
+        // A body long enough to get truncated (see audit-log.js) is no longer
+        // valid JSON; fall back to the raw truncated text rather than throw.
+        requestBody: row.request_body
+          ? (() => {
+              try {
+                return JSON.parse(row.request_body);
+              } catch {
+                return row.request_body;
+              }
+            })()
+          : null,
+        createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
+      })),
+    });
   })
 );
 

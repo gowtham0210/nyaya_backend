@@ -39,6 +39,13 @@ async function revokeRefreshToken(connection, refreshToken) {
   );
 }
 
+async function revokeAllRefreshTokens(connection, userId) {
+  await connection.execute(
+    'UPDATE refresh_tokens SET revoked_at = UTC_TIMESTAMP() WHERE user_id = ? AND revoked_at IS NULL',
+    [userId]
+  );
+}
+
 async function assertRefreshTokenIsActive(connection, userId, refreshToken) {
   const [rows] = await connection.execute(
     `
@@ -80,5 +87,6 @@ module.exports = {
   getRefreshTokenExpiryDate,
   storeRefreshToken,
   revokeRefreshToken,
+  revokeAllRefreshTokens,
   assertRefreshTokenIsActive,
 };
