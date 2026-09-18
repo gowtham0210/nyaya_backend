@@ -3,3 +3,21 @@ node_modules/
 npm-debug.log*
 frontend/dist/
 frontend/.env
+
+
+# Dependencies
+node_modules/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+backend.stdout.log
+backend.stderr.log
+
+# Debug
+npm-debug.log*
+yarn-debug.log*

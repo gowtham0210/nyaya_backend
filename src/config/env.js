@@ -47,4 +47,11 @@ module.exports = {
     queueLimit: 0,
     connectTimeout: Number(process.env.DB_CONNECT_TIMEOUT) || 10000,
   },
+  firebase: {
+    projectId: process.env.FIREBASE_PROJECT_ID || null,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL || null,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY
+      ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+      : null,
+  },
 };

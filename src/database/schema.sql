@@ -1,15 +1,19 @@
 CREATE TABLE IF NOT EXISTS users (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   full_name VARCHAR(150) NOT NULL,
-  email VARCHAR(191) NOT NULL,
+  email VARCHAR(191) DEFAULT NULL,
   phone VARCHAR(25) DEFAULT NULL,
+  profession VARCHAR(120) DEFAULT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  firebase_uid VARCHAR(128) DEFAULT NULL,
+  phone_verified TINYINT(1) NOT NULL DEFAULT 0,
   status VARCHAR(30) NOT NULL DEFAULT 'active',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_email (email),
   UNIQUE KEY uq_users_phone (phone),
+  UNIQUE KEY uq_users_firebase_uid (firebase_uid),
   KEY idx_users_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
