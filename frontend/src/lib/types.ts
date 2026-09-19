@@ -33,6 +33,13 @@ export interface Quiz {
   updatedAt: string;
 }
 
+export interface PracticeSetting {
+  difficulty: 'easy' | 'medium' | 'hard';
+  questionCount: number;
+  isEnabled: boolean;
+  updatedAt: string;
+}
+
 export interface QuestionOption {
   id: number;
   questionId: number;

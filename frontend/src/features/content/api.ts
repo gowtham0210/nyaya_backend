@@ -1,5 +1,5 @@
 import { httpClient } from '@/lib/http-client';
-import { Category, Question, QuestionOption, Quiz } from '@/lib/types';
+import { Category, PracticeSetting, Question, QuestionOption, Quiz } from '@/lib/types';
 
 export type BulkCategoryMutationResult = {
   successIds: number[];
@@ -122,6 +122,22 @@ export async function saveQuiz(quizId: number | null, payload: Omit<Quiz, 'id' |
 
 export async function deactivateQuiz(quizId: number) {
   await httpClient.delete(`/admin/quizzes/${quizId}`);
+}
+
+export async function getPracticeSettings() {
+  const response = await httpClient.get<{ items: PracticeSetting[] }>('/admin/practice-settings');
+  return response.data.items;
+}
+
+export async function savePracticeSetting(
+  difficulty: PracticeSetting['difficulty'],
+  payload: { questionCount: number; isEnabled: boolean }
+) {
+  const response = await httpClient.patch<PracticeSetting>(
+    `/admin/practice-settings/${difficulty}`,
+    payload
+  );
+  return response.data;
 }
 
 export async function getQuestions(quizId: number, showInactive = false) {
