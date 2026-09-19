@@ -18,7 +18,7 @@ router.get(
   '/global',
   asyncHandler(async (req, res) => {
     const limit = getLimit(req.query);
-    const [rows] = await pool.execute(
+    const [rows] = await pool.query(
       `
         SELECT
           u.id AS user_id,
@@ -42,7 +42,7 @@ router.get(
   '/weekly',
   asyncHandler(async (req, res) => {
     const limit = getLimit(req.query);
-    const [rows] = await pool.execute(
+    const [rows] = await pool.query(
       `
         SELECT
           u.id AS user_id,
@@ -77,7 +77,7 @@ router.get(
       throw notFound('Category not found');
     }
 
-    const [rows] = await pool.execute(
+    const [rows] = await pool.query(
       `
         SELECT
           u.id AS user_id,
