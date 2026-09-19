@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS question_options (
 CREATE TABLE IF NOT EXISTS quiz_attempts (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id BIGINT UNSIGNED NOT NULL,
-  quiz_id BIGINT UNSIGNED NOT NULL,
+  quiz_id BIGINT UNSIGNED DEFAULT NULL,
   started_at DATETIME NOT NULL,
   submitted_at DATETIME DEFAULT NULL,
   status VARCHAR(30) NOT NULL DEFAULT 'in_progress',
@@ -304,4 +304,30 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
     FOREIGN KEY (admin_user_id) REFERENCES users (id)
     ON UPDATE CASCADE
     ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS quiz_attempt_questions (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  quiz_attempt_id BIGINT UNSIGNED NOT NULL,
+  question_id BIGINT UNSIGNED NOT NULL,
+  display_order INT NOT NULL DEFAULT 1,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_quiz_attempt_questions_attempt_question (quiz_attempt_id, question_id),
+  KEY idx_quiz_attempt_questions_question_id (question_id),
+  CONSTRAINT fk_quiz_attempt_questions_attempt
+    FOREIGN KEY (quiz_attempt_id) REFERENCES quiz_attempts (id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  CONSTRAINT fk_quiz_attempt_questions_question
+    FOREIGN KEY (question_id) REFERENCES questions (id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS practice_settings (
+  difficulty_level VARCHAR(30) NOT NULL,
+  question_count INT NOT NULL DEFAULT 10,
+  is_enabled TINYINT(1) NOT NULL DEFAULT 1,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (difficulty_level)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
