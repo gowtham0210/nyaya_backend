@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { getCategories, getQuizzes, saveQuiz, deactivateQuiz } from '@/features/content/api';
+import { PracticeSettingsPanel } from '@/features/content/PracticeSettingsPanel';
 import { QUIZ_DIFFICULTIES, quizDefaults, quizSchema } from '@/features/content/schemas';
 import { useConfirm } from '@/app/providers/ConfirmProvider';
 import { Field } from '@/components/shared/Field';
@@ -26,6 +27,7 @@ type QuizFormValues = z.infer<typeof quizSchema>;
 export function QuizzesPage() {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
+  const [activeTab, setActiveTab] = useState<'quizzes' | 'practice'>('quizzes');
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
   const [categoryId, setCategoryId] = useState<number | null>(null);
@@ -167,6 +169,30 @@ export function QuizzesPage() {
         />
       </PageHeader>
 
+      <div className="flex gap-2 rounded-2xl border border-slate-200 bg-white p-1 w-fit">
+        <button
+          type="button"
+          className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+            activeTab === 'quizzes' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
+          }`}
+          onClick={() => setActiveTab('quizzes')}
+        >
+          Quizzes
+        </button>
+        <button
+          type="button"
+          className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+            activeTab === 'practice' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
+          }`}
+          onClick={() => setActiveTab('practice')}
+        >
+          Practice
+        </button>
+      </div>
+
+      {activeTab === 'practice' ? (
+        <PracticeSettingsPanel />
+      ) : (
       <Card className="overflow-hidden">
         {isInitialLoading ? (
           <div className="p-6">
@@ -237,6 +263,7 @@ export function QuizzesPage() {
           </div>
         )}
       </Card>
+      )}
 
       <Sheet
         open={sheetOpen}
