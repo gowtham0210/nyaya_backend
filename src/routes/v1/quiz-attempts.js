@@ -4,7 +4,7 @@ const { asyncHandler } = require('../../utils/async-handler');
 const { getPagination } = require('../../utils/pagination');
 const { parseId, requireFields } = require('../../utils/sql');
 const { badRequest, notFound } = require('../../utils/errors');
-const { serializeQuestionAttempt, serializeQuizAttempt } = require('../../utils/serializers');
+const { serializePlayableQuestion, serializeQuestionAttempt, serializeQuizAttempt } = require('../../utils/serializers');
 const { getAttemptOrThrow } = require('../../services/gamification');
 const { buildQuizResult, recalculateAttempt, submitAttempt } = require('../../services/quiz-attempts');
 
@@ -65,6 +65,112 @@ router.post(
       ]);
 
       return serializeQuizAttempt(rows[0]);
+    });
+
+    res.status(201).json(response);
+  })
+);
+
+router.post(
+  '/custom',
+  asyncHandler(async (req, res) => {
+    const payload = req.body || {};
+    requireFields(payload, ['difficulty']);
+    const difficulty = String(payload.difficulty);
+
+    if (!['easy', 'medium', 'hard'].includes(difficulty)) {
+      throw badRequest('difficulty must be one of easy, medium, hard');
+    }
+
+    const response = await withTransaction(async (connection) => {
+      const [settingRows] = await connection.execute(
+        'SELECT * FROM practice_settings WHERE difficulty_level = ? LIMIT 1',
+        [difficulty]
+      );
+      const setting = settingRows[0];
+
+      if (!setting || !setting.is_enabled) {
+        throw badRequest('This difficulty is not available for practice right now');
+      }
+
+      const [questionRows] = await connection.execute(
+        `
+          SELECT *
+          FROM questions
+          WHERE difficulty_level = ? AND is_active = 1
+          ORDER BY RAND()
+          LIMIT ?
+        `,
+        [difficulty, Number(setting.question_count)]
+      );
+
+      if (questionRows.length === 0) {
+        throw badRequest('No questions are available for this difficulty right now');
+      }
+
+      const startedAt = new Date();
+      const [attemptResult] = await connection.execute(
+        `
+          INSERT INTO quiz_attempts (
+            user_id,
+            quiz_id,
+            started_at,
+            status,
+            total_questions,
+            answered_questions,
+            correct_answers,
+            wrong_answers,
+            skipped_answers,
+            total_score,
+            total_points_earned
+          )
+          VALUES (?, NULL, ?, 'in_progress', ?, 0, 0, 0, ?, 0, 0)
+        `,
+        [req.auth.userId, startedAt, questionRows.length, questionRows.length]
+      );
+      const attemptId = Number(attemptResult.insertId);
+
+      const questionIds = questionRows.map((question) => Number(question.id));
+      const [optionRows] = await connection.query(
+        `
+          SELECT *
+          FROM question_options
+          WHERE question_id IN (?)
+          ORDER BY question_id ASC, display_order ASC, id ASC
+        `,
+        [questionIds]
+      );
+      const optionsByQuestionId = optionRows.reduce((accumulator, option) => {
+        const questionId = Number(option.question_id);
+
+        if (!accumulator.has(questionId)) {
+          accumulator.set(questionId, []);
+        }
+
+        accumulator.get(questionId).push(option);
+        return accumulator;
+      }, new Map());
+
+      for (const [index, questionId] of questionIds.entries()) {
+        await connection.execute(
+          `
+            INSERT INTO quiz_attempt_questions (quiz_attempt_id, question_id, display_order)
+            VALUES (?, ?, ?)
+          `,
+          [attemptId, questionId, index + 1]
+        );
+      }
+
+      const [attemptRows] = await connection.execute('SELECT * FROM quiz_attempts WHERE id = ? LIMIT 1', [
+        attemptId,
+      ]);
+
+      return {
+        attempt: serializeQuizAttempt(attemptRows[0]),
+        questions: questionRows.map((question) =>
+          serializePlayableQuestion(question, optionsByQuestionId.get(Number(question.id)) || [])
+        ),
+      };
     });
 
     res.status(201).json(response);
@@ -145,14 +251,22 @@ router.post(
 
       const questionId = parseId(payload.questionId, 'questionId');
       const selectedOptionId = parseId(payload.selectedOptionId, 'selectedOptionId');
+
+      // A practice attempt's questions come from many quizzes, so they
+      // can't be validated by matching quiz_id the way a category
+      // attempt's can. quiz_attempt_questions only ever has rows for a
+      // practice attempt, so its presence is what tells the two apart.
+      const [membershipRows] = await connection.execute(
+        'SELECT 1 FROM quiz_attempt_questions WHERE quiz_attempt_id = ? AND question_id = ? LIMIT 1',
+        [attemptId, questionId]
+      );
+      const isPracticeAttempt = membershipRows.length > 0;
+
       const [questionRows] = await connection.execute(
-        `
-          SELECT *
-          FROM questions
-          WHERE id = ? AND quiz_id = ? AND is_active = 1
-          LIMIT 1
-        `,
-        [questionId, Number(attempt.quiz_id)]
+        isPracticeAttempt
+          ? 'SELECT * FROM questions WHERE id = ? AND is_active = 1 LIMIT 1'
+          : 'SELECT * FROM questions WHERE id = ? AND quiz_id = ? AND is_active = 1 LIMIT 1',
+        isPracticeAttempt ? [questionId] : [questionId, Number(attempt.quiz_id)]
       );
       const question = questionRows[0];
 
