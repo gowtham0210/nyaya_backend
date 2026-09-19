@@ -112,7 +112,7 @@ function serializeQuizAttempt(row) {
   return {
     id: Number(row.id),
     userId: Number(row.user_id),
-    quizId: Number(row.quiz_id),
+    quizId: row.quiz_id === null ? null : Number(row.quiz_id),
     status: row.status,
     totalQuestions: Number(row.total_questions),
     answeredQuestions: Number(row.answered_questions),
@@ -196,6 +196,15 @@ function serializeLevel(row) {
   };
 }
 
+function serializePracticeSetting(row) {
+  return {
+    difficulty: row.difficulty_level,
+    questionCount: Number(row.question_count),
+    isEnabled: Boolean(row.is_enabled),
+    updatedAt: toIsoString(row.updated_at),
+  };
+}
+
 function serializeUserAchievement(row) {
   const userAchievement = {
     id: Number(row.id),
@@ -247,6 +256,7 @@ module.exports = {
   serializeUserProgress,
   serializeUserStreak,
   serializeLevel,
+  serializePracticeSetting,
   serializeUserAchievement,
   serializeLeaderboardEntry,
 };
