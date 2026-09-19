@@ -9,6 +9,7 @@ const {
   serializeCategory,
   serializeLeaderboardEntry,
   serializeLevel,
+  serializePracticeSetting,
   serializeQuestion,
   serializeQuestionOption,
   serializeQuiz,
@@ -800,6 +801,59 @@ router.get(
         createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
       })),
     });
+  })
+);
+
+const PRACTICE_DIFFICULTIES = ['easy', 'medium', 'hard'];
+
+router.get(
+  '/practice-settings',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      `
+        SELECT *
+        FROM practice_settings
+        ORDER BY FIELD(difficulty_level, 'easy', 'medium', 'hard')
+      `
+    );
+
+    res.json({ items: rows.map(serializePracticeSetting) });
+  })
+);
+
+router.patch(
+  '/practice-settings/:difficulty',
+  asyncHandler(async (req, res) => {
+    const difficulty = String(req.params.difficulty);
+
+    if (!PRACTICE_DIFFICULTIES.includes(difficulty)) {
+      throw badRequest(`difficulty must be one of ${PRACTICE_DIFFICULTIES.join(', ')}`);
+    }
+
+    const update = buildUpdateClause(req.body || {}, {
+      questionCount: 'question_count',
+      isEnabled: 'is_enabled',
+    });
+
+    if (!update) {
+      throw badRequest('At least one updatable field is required');
+    }
+
+    const [result] = await pool.execute(
+      `UPDATE practice_settings SET ${update.setClause}, updated_at = CURRENT_TIMESTAMP WHERE difficulty_level = ?`,
+      [...update.values, difficulty]
+    );
+
+    if (result.affectedRows === 0) {
+      throw notFound('Practice setting not found');
+    }
+
+    const [rows] = await pool.execute(
+      'SELECT * FROM practice_settings WHERE difficulty_level = ? LIMIT 1',
+      [difficulty]
+    );
+
+    res.json(serializePracticeSetting(rows[0]));
   })
 );
 
