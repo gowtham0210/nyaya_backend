@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS users (
   full_name VARCHAR(150) NOT NULL,
   email VARCHAR(191) NOT NULL,
   phone VARCHAR(25) DEFAULT NULL,
+  profession VARCHAR(120) DEFAULT NULL,
+  avatar_url VARCHAR(500) DEFAULT NULL,
   password_hash VARCHAR(255) NOT NULL,
   status VARCHAR(30) NOT NULL DEFAULT 'active',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -306,4 +308,30 @@ CREATE TABLE IF NOT EXISTS user_achievements (
     FOREIGN KEY (achievement_id) REFERENCES achievements (id)
     ON UPDATE CASCADE
     ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS translations (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  entity_type VARCHAR(32) NOT NULL,
+  entity_id BIGINT UNSIGNED NOT NULL,
+  field_name VARCHAR(64) NOT NULL,
+  lang_code VARCHAR(5) NOT NULL,
+  translated_text TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_translations_entity_field_lang (entity_type, entity_id, field_name, lang_code),
+  KEY idx_translations_lookup (entity_type, lang_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS support_requests (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  subject VARCHAR(150) NOT NULL,
+  message TEXT NOT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'open',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_support_requests_user_id (user_id),
+  CONSTRAINT fk_support_requests_user FOREIGN KEY (user_id) REFERENCES users (id) ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

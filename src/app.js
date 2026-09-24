@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const apiRoutesV1 = require('./routes/v1');
@@ -20,6 +21,10 @@ const corsOptions =
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// Serves uploaded avatar images (see routes/v1/users.js's POST /users/me/avatar).
+// Bundled artwork (e.g. category cover images) — see public/.
+app.use('/assets', express.static(path.join(__dirname, '..', 'public')));
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 app.get('/', (req, res) => {
   res.json({

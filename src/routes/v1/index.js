@@ -11,6 +11,7 @@ const quizRoutes = require('./quizzes');
 const quizAttemptRoutes = require('./quiz-attempts');
 const levelRoutes = require('./levels');
 const leaderboardRoutes = require('./leaderboards');
+const helpResourceRoutes = require('./help-resources');
 const adminRoutes = require('./admin');
 
 const router = express.Router();
@@ -24,6 +25,7 @@ router.use('/categories', categoryRoutes);
 router.use('/articles', articleRoutes);
 router.use('/daily-questions', dailyQuestionRoutes);
 router.use('/legal-updates', legalUpdateRoutes);
+router.use('/help-resources', helpResourceRoutes);
 router.use('/quizzes', quizRoutes);
 router.use('/quiz-attempts', quizAttemptRoutes);
 router.use('/levels', levelRoutes);
