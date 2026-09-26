@@ -10,7 +10,6 @@ const legalUpdateRoutes = require('./legal-updates');
 const quizRoutes = require('./quizzes');
 const quizAttemptRoutes = require('./quiz-attempts');
 const levelRoutes = require('./levels');
-const leaderboardRoutes = require('./leaderboards');
 const helpResourceRoutes = require('./help-resources');
 const adminRoutes = require('./admin');
 
@@ -29,7 +28,6 @@ router.use('/help-resources', helpResourceRoutes);
 router.use('/quizzes', quizRoutes);
 router.use('/quiz-attempts', quizAttemptRoutes);
 router.use('/levels', levelRoutes);
-router.use('/leaderboards', leaderboardRoutes);
 
 router.use('/admin', requireAdmin, adminRoutes);
 
