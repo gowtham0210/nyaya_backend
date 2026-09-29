@@ -1,5 +1,6 @@
 const express = require('express');
 const { authenticate, requireAdmin } = require('../../middleware/auth');
+const { auditAdminActions } = require('../../middleware/audit-log');
 const systemRoutes = require('./system');
 const authRoutes = require('./auth');
 const userRoutes = require('./users');
@@ -29,6 +30,6 @@ router.use('/quizzes', quizRoutes);
 router.use('/quiz-attempts', quizAttemptRoutes);
 router.use('/levels', levelRoutes);
 
-router.use('/admin', requireAdmin, adminRoutes);
+router.use('/admin', requireAdmin, auditAdminActions, adminRoutes);
 
 module.exports = router;

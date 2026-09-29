@@ -1,13 +1,11 @@
-const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
 const express = require('express');
-const multer = require('multer');
 const { pool, withTransaction } = require('../../config/database');
 const { asyncHandler } = require('../../utils/async-handler');
 const { badRequest } = require('../../utils/errors');
-const { buildUpdateClause } = require('../../utils/sql');
-const { comparePassword, hashPassword } = require('../../utils/auth');
+const { buildUpdateClause, requireFields } = require('../../utils/sql');
+const { assertValidPassword, comparePassword, hashPassword } = require('../../utils/auth');
+const { revokeAllRefreshTokens } = require('../../services/refresh-tokens');
+const { createImageUploader, deleteUploadedFile, publicUrlFor } = require('../../middleware/upload');
 const {
   serializePointTransaction,
   serializeUser,
@@ -19,28 +17,8 @@ const { getPagination } = require('../../utils/pagination');
 const { getUserProgressRow, getUserStreakRow } = require('../../services/gamification');
 
 const router = express.Router();
+const avatarUpload = createImageUploader('avatars', ['image', 'avatar']);
 
-const AVATAR_DIR = path.join(__dirname, '..', '..', '..', 'uploads', 'avatars');
-fs.mkdirSync(AVATAR_DIR, { recursive: true });
-
-const ALLOWED_AVATAR_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-
-const uploadAvatar = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => cb(null, AVATAR_DIR),
-    filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname) || '.jpg';
-      cb(null, `user-${req.auth.userId}-${crypto.randomUUID()}${ext}`);
-    },
-  }),
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (!ALLOWED_AVATAR_TYPES.has(file.mimetype)) {
-      return cb(badRequest('Only JPEG, PNG or WEBP images are allowed'));
-    }
-    cb(null, true);
-  },
-});
 
 router.get(
   '/me',
@@ -68,7 +46,7 @@ router.patch(
     );
 
     const [rows] = await pool.execute(
-      'SELECT id, full_name, email, phone, profession, avatar_url, status, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, full_name, email, phone, profession, avatar_url, email_verified, status, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
       [req.auth.userId]
     );
 
@@ -78,51 +56,58 @@ router.patch(
 
 router.post(
   '/me/avatar',
-  uploadAvatar.single('avatar'),
+  avatarUpload,
   asyncHandler(async (req, res) => {
     if (!req.file) {
-      throw badRequest('An image file is required in the "avatar" field');
+      throw badRequest('An image file is required (multipart field "image" or "avatar")');
     }
 
-    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    const [rows] = await pool.execute('SELECT avatar_url FROM users WHERE id = ? LIMIT 1', [
+      req.auth.userId,
+    ]);
+    const avatarUrl = publicUrlFor('avatars', req.file.filename);
 
     await pool.execute('UPDATE users SET avatar_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [
       avatarUrl,
       req.auth.userId,
     ]);
+    deleteUploadedFile(rows[0].avatar_url);
 
-    const [rows] = await pool.execute(
-      'SELECT id, full_name, email, phone, profession, avatar_url, status, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
+    const [updatedRows] = await pool.execute(
+      'SELECT id, full_name, email, phone, profession, avatar_url, email_verified, status, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
       [req.auth.userId]
     );
 
-    res.json(serializeUser(rows[0]));
+    res.json(serializeUser(updatedRows[0]));
   })
 );
 
 router.post(
-  '/me/change-password',
+  ['/me/password', '/me/change-password'],
   asyncHandler(async (req, res) => {
-    const { currentPassword, newPassword } = req.body || {};
+    const payload = req.body || {};
+    requireFields(payload, ['currentPassword', 'newPassword']);
+    assertValidPassword(payload.newPassword, 'newPassword');
 
-    if (!currentPassword || !newPassword) {
-      throw badRequest('currentPassword and newPassword are required');
-    }
+    const [rows] = await pool.execute('SELECT password_hash FROM users WHERE id = ? LIMIT 1', [
+      req.auth.userId,
+    ]);
 
-    if (String(newPassword).length < 8) {
-      throw badRequest('newPassword must be at least 8 characters long');
-    }
-
-    const [rows] = await pool.execute('SELECT password_hash FROM users WHERE id = ? LIMIT 1', [req.auth.userId]);
-
-    if (!rows[0] || !(await comparePassword(String(currentPassword), rows[0].password_hash))) {
+    // 400, not 401: a 401 would make clients try to refresh the session and retry.
+    if (!(await comparePassword(payload.currentPassword, rows[0].password_hash))) {
       throw badRequest('Current password is incorrect');
     }
 
-    await pool.execute('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [
-      await hashPassword(String(newPassword)),
-      req.auth.userId,
-    ]);
+    const passwordHash = await hashPassword(payload.newPassword);
+
+    await withTransaction(async (connection) => {
+      await connection.execute(
+        'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [passwordHash, req.auth.userId]
+      );
+      // Signs out every device; the app should send the user back to login.
+      await revokeAllRefreshTokens(connection, req.auth.userId);
+    });
 
     res.status(204).send();
   })
