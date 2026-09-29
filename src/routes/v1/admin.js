@@ -12,6 +12,8 @@ const {
   serializeQuiz,
 } = require('../../utils/serializers');
 
+const { serializeResource } = require('./help-resources');
+
 const router = express.Router();
 
 router.get(
@@ -677,6 +679,47 @@ router.patch(
 
     const [rows] = await pool.execute('SELECT * FROM levels WHERE id = ? LIMIT 1', [levelId]);
     res.json(serializeLevel(rows[0]));
+  })
+);
+
+
+// PATCH /admin/help-resources/:id — update a resource's contact details after
+// checking them against the official source. Pass  to
+// stamp it verified now.
+router.patch(
+  '/help-resources/:id',
+  asyncHandler(async (req, res) => {
+    const id = parseId(req.params.id);
+    const body = req.body || {};
+    const update = buildUpdateClause(body, {
+      resourceName: 'resource_name',
+      phoneNumber: 'phone_number',
+      tollFree: 'toll_free',
+      email: 'email',
+      websiteUrl: 'website_url',
+      serviceHours: 'service_hours',
+      availability: 'availability',
+      sourceName: 'source_name',
+      sourceUrl: 'source_url',
+      isActive: 'is_active',
+    });
+
+    const sets = update ? [update.setClause] : [];
+    const values = update ? [...update.values] : [];
+    if (body.markVerified === true) {
+      sets.push("verification_status = 'verified'", 'last_verified_at = UTC_TIMESTAMP()');
+    }
+    if (!sets.length) {
+      throw badRequest('At least one updatable field is required');
+    }
+
+    const [result] = await pool.execute(`UPDATE help_resources SET ${sets.join(', ')} WHERE id = ?`, [...values, id]);
+    if (!result.affectedRows) {
+      throw notFound('Help resource not found');
+    }
+
+    const [rows] = await pool.execute('SELECT * FROM help_resources WHERE id = ? LIMIT 1', [id]);
+    res.json(serializeResource(rows[0]));
   })
 );
 
