@@ -3,5 +3,8 @@ node_modules/
 npm-debug.log*
 frontend/dist/
 frontend/.env
-backend.stdout.log
-backend.stderr.log
+uploads/
+.env.*
+!.env.example
+*.log
+yarn-debug.log*

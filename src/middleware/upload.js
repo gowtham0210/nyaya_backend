@@ -21,14 +21,14 @@ function ensureUploadDir(subdir) {
 }
 
 // One multer instance per subdirectory (categories/quizzes/avatars), each
-// expecting a single multipart field named "image".
-function createImageUploader(subdir) {
+// expecting a single image in one of fieldNames (default "image").
+function createImageUploader(subdir, fieldNames = ['image']) {
   const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, ensureUploadDir(subdir)),
     filename: (req, file, cb) => cb(null, `${crypto.randomUUID()}${path.extname(file.originalname).toLowerCase()}`),
   });
 
-  return multer({
+  const upload = multer({
     storage,
     limits: { fileSize: MAX_FILE_SIZE_BYTES },
     fileFilter: (req, file, cb) => {
@@ -38,7 +38,15 @@ function createImageUploader(subdir) {
 
       cb(null, true);
     },
-  }).single('image');
+  }).fields(fieldNames.map((name) => ({ name, maxCount: 1 })));
+
+  return (req, res, next) =>
+    upload(req, res, (err) => {
+      if (!err && req.files) {
+        req.file = fieldNames.map((name) => req.files[name] && req.files[name][0]).find(Boolean);
+      }
+      next(err);
+    });
 }
 
 function publicUrlFor(subdir, filename) {

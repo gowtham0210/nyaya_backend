@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const pinoHttp = require('pino-http');
@@ -31,6 +32,8 @@ app.use(
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// Bundled artwork (e.g. category cover images) — see public/.
+app.use('/assets', express.static(path.join(__dirname, '..', 'public')));
 
 app.get('/', (req, res) => {
   res.json({
