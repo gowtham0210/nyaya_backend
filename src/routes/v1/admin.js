@@ -425,9 +425,10 @@ router.post(
           total_questions,
           time_limit_seconds,
           passing_score,
+          level_id,
           is_active
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         parseId(payload.categoryId, 'categoryId'),
@@ -438,6 +439,9 @@ router.post(
         Number(payload.totalQuestions),
         payload.timeLimitSeconds === undefined ? null : Number(payload.timeLimitSeconds),
         payload.passingScore === undefined ? 0 : Number(payload.passingScore),
+        payload.levelId === undefined || payload.levelId === null
+          ? null
+          : parseId(payload.levelId, 'levelId'),
         payload.isActive === undefined ? 1 : payload.isActive ? 1 : 0,
       ]
     );
@@ -462,6 +466,7 @@ router.patch(
       totalQuestions: 'total_questions',
       timeLimitSeconds: 'time_limit_seconds',
       passingScore: 'passing_score',
+      levelId: 'level_id',
       isActive: 'is_active',
     });
 

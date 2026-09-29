@@ -3,7 +3,8 @@ const { pool, withTransaction } = require('../../config/database');
 const { asyncHandler } = require('../../utils/async-handler');
 const { getPagination } = require('../../utils/pagination');
 const { parseId, requireFields } = require('../../utils/sql');
-const { badRequest, notFound } = require('../../utils/errors');
+const { badRequest, notFound, forbidden } = require('../../utils/errors');
+const { getQuizAccess } = require('../../services/quiz-access');
 const { serializePlayableQuestion, serializeQuestionAttempt, serializeQuizAttempt } = require('../../utils/serializers');
 const { getAttemptOrThrow } = require('../../services/gamification');
 const { buildQuizResult, recalculateAttempt, submitAttempt } = require('../../services/quiz-attempts');
@@ -27,6 +28,12 @@ router.post(
 
       if (!quiz.is_active) {
         throw badRequest('Quiz is not active');
+      }
+
+      const access = await getQuizAccess(req.auth.userId, connection);
+
+      if (access.isLocked(quiz)) {
+        throw forbidden(`This quiz unlocks at ${access.requiredPoints(quiz)} points`);
       }
 
       const [countRows] = await connection.execute(

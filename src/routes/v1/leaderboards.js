@@ -38,29 +38,46 @@ router.get(
   })
 );
 
+// Points earned in the trailing [days] days, ranked the same way as the
+// all-time board. A rolling window rather than a calendar week/month, so
+// the ranking doesn't jump at midnight on the 1st/Monday.
+async function windowedLeaderboard(days, limit) {
+  const [rows] = await pool.execute(
+    `
+      SELECT
+        u.id AS user_id,
+        u.full_name,
+        COALESCE(SUM(pt.points_delta), 0) AS total_points,
+        up.current_level_id
+      FROM users u
+      INNER JOIN user_progress up ON up.user_id = u.id
+      LEFT JOIN point_transactions pt
+        ON pt.user_id = u.id
+        AND pt.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? DAY)
+      WHERE u.status = 'active'
+      GROUP BY u.id, u.full_name, up.current_level_id
+      ORDER BY total_points DESC, u.full_name ASC, u.id ASC
+      LIMIT ?
+    `,
+    [days, limit]
+  );
+
+  return rows;
+}
+
 router.get(
   '/weekly',
   asyncHandler(async (req, res) => {
-    const limit = getLimit(req.query);
-    const [rows] = await pool.execute(
-      `
-        SELECT
-          u.id AS user_id,
-          u.full_name,
-          COALESCE(SUM(pt.points_delta), 0) AS total_points,
-          up.current_level_id
-        FROM users u
-        INNER JOIN user_progress up ON up.user_id = u.id
-        LEFT JOIN point_transactions pt
-          ON pt.user_id = u.id
-          AND pt.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY)
-        WHERE u.status = 'active'
-        GROUP BY u.id, u.full_name, up.current_level_id
-        ORDER BY total_points DESC, u.full_name ASC, u.id ASC
-        LIMIT ?
-      `,
-      [limit]
-    );
+    const rows = await windowedLeaderboard(7, getLimit(req.query));
+
+    res.json(buildLeaderboardResponse(rows));
+  })
+);
+
+router.get(
+  '/monthly',
+  asyncHandler(async (req, res) => {
+    const rows = await windowedLeaderboard(30, getLimit(req.query));
 
     res.json(buildLeaderboardResponse(rows));
   })

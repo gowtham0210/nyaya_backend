@@ -45,10 +45,15 @@ function serializeCategory(row) {
   };
 }
 
-function serializeQuiz(row) {
+function serializeQuiz(row, { isLocked = false, requiredPoints = null } = {}) {
   return {
     id: Number(row.id),
     categoryId: Number(row.category_id),
+    levelId: row.level_id === null || row.level_id === undefined ? null : Number(row.level_id),
+    // True while the player's points are below the level's min_points; the
+    // quiz still lists so they can see what is ahead of them.
+    isLocked: Boolean(isLocked),
+    requiredPoints: requiredPoints === null ? null : Number(requiredPoints),
     title: row.title,
     slug: row.slug,
     description: row.description,

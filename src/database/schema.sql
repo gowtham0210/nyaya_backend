@@ -225,6 +225,8 @@ CREATE TABLE IF NOT EXISTS user_progress (
   total_correct_answers INT NOT NULL DEFAULT 0,
   total_wrong_answers INT NOT NULL DEFAULT 0,
   accuracy_percentage DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+  credits INT NOT NULL DEFAULT 100,
+  credits_updated_at DATETIME DEFAULT NULL,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id),
   KEY idx_user_progress_level_id (current_level_id),
@@ -330,4 +332,48 @@ CREATE TABLE IF NOT EXISTS practice_settings (
   is_enabled TINYINT(1) NOT NULL DEFAULT 1,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (difficulty_level)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- The Learning Journey's spendable "energy": every mutation (spend, refund,
+-- penalty, reward, chest claim, regen) is server-computed and logged here so
+-- a client can never hand itself credits by editing local state. A spend can
+-- be refunded at most once, enforced by the unique key on
+-- refund_of_transaction_id rather than trusting the client to ask only once.
+CREATE TABLE IF NOT EXISTS credit_transactions (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  reason VARCHAR(40) NOT NULL,
+  amount INT NOT NULL,
+  refunded TINYINT(1) NOT NULL DEFAULT 0,
+  refund_of_transaction_id BIGINT UNSIGNED DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_credit_transactions_user_id (user_id),
+  KEY idx_credit_transactions_user_reason_created (user_id, reason, created_at),
+  UNIQUE KEY uq_credit_transactions_refund_of (refund_of_transaction_id),
+  CONSTRAINT fk_credit_transactions_user
+    FOREIGN KEY (user_id) REFERENCES users (id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  CONSTRAINT fk_credit_transactions_refund_of
+    FOREIGN KEY (refund_of_transaction_id) REFERENCES credit_transactions (id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- One-time credit chest claims, keyed so the same chest can't be opened
+-- twice even if the client replays the request.
+CREATE TABLE IF NOT EXISTS credit_chest_claims (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  chest_type VARCHAR(10) NOT NULL,
+  chest_index INT UNSIGNED NOT NULL,
+  reward INT NOT NULL,
+  claimed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_credit_chest_claims_user_chest (user_id, chest_type, chest_index),
+  CONSTRAINT fk_credit_chest_claims_user
+    FOREIGN KEY (user_id) REFERENCES users (id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

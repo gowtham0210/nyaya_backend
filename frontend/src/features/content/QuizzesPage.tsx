@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { getCategories, getQuizzes, saveQuiz, deactivateQuiz } from '@/features/content/api';
+import { LevelsPanel } from '@/features/content/LevelsPanel';
 import { PracticeSettingsPanel } from '@/features/content/PracticeSettingsPanel';
 import { QUIZ_DIFFICULTIES, quizDefaults, quizSchema } from '@/features/content/schemas';
 import { useConfirm } from '@/app/providers/ConfirmProvider';
@@ -27,7 +28,7 @@ type QuizFormValues = z.infer<typeof quizSchema>;
 export function QuizzesPage() {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
-  const [activeTab, setActiveTab] = useState<'quizzes' | 'practice'>('quizzes');
+  const [activeTab, setActiveTab] = useState<'quizzes' | 'practice' | 'levels'>('quizzes');
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
   const [categoryId, setCategoryId] = useState<number | null>(null);
@@ -188,9 +189,20 @@ export function QuizzesPage() {
         >
           Practice
         </button>
+        <button
+          type="button"
+          className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+            activeTab === 'levels' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
+          }`}
+          onClick={() => setActiveTab('levels')}
+        >
+          Levels
+        </button>
       </div>
 
-      {activeTab === 'practice' ? (
+      {activeTab === 'levels' ? (
+        <LevelsPanel />
+      ) : activeTab === 'practice' ? (
         <PracticeSettingsPanel />
       ) : (
       <Card className="overflow-hidden">

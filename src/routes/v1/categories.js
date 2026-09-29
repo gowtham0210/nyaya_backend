@@ -4,6 +4,7 @@ const { asyncHandler } = require('../../utils/async-handler');
 const { parseId } = require('../../utils/sql');
 const { notFound } = require('../../utils/errors');
 const { serializeCategory, serializeQuiz } = require('../../utils/serializers');
+const { getQuizAccess } = require('../../services/quiz-access');
 
 const router = express.Router();
 
@@ -54,8 +55,15 @@ router.get(
       [categoryId]
     );
 
+    const access = await getQuizAccess(req.auth.userId);
+
     res.json({
-      items: rows.map(serializeQuiz),
+      items: rows.map((row) =>
+        serializeQuiz(row, {
+          isLocked: access.isLocked(row),
+          requiredPoints: access.requiredPoints(row),
+        })
+      ),
     });
   })
 );

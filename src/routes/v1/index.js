@@ -10,6 +10,7 @@ const quizAttemptRoutes = require('./quiz-attempts');
 const levelRoutes = require('./levels');
 const leaderboardRoutes = require('./leaderboards');
 const practiceSettingsRoutes = require('./practice-settings');
+const creditsRoutes = require('./credits');
 const adminRoutes = require('./admin');
 
 const router = express.Router();
@@ -25,6 +26,7 @@ router.use('/quiz-attempts', quizAttemptRoutes);
 router.use('/levels', levelRoutes);
 router.use('/leaderboards', leaderboardRoutes);
 router.use('/practice-settings', practiceSettingsRoutes);
+router.use('/credits', creditsRoutes);
 
 router.use('/admin', requireAdmin, auditAdminActions, adminRoutes);
 
