@@ -3,7 +3,16 @@ CREATE TABLE IF NOT EXISTS users (
   full_name VARCHAR(150) NOT NULL,
   email VARCHAR(191) NOT NULL,
   phone VARCHAR(25) DEFAULT NULL,
+  profession VARCHAR(120) DEFAULT NULL,
+  avatar_url VARCHAR(500) DEFAULT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  password_reset_hash CHAR(64) DEFAULT NULL,
+  password_reset_expires_at DATETIME DEFAULT NULL,
+  password_reset_attempts INT NOT NULL DEFAULT 0,
+  email_verified TINYINT(1) NOT NULL DEFAULT 0,
+  email_verification_hash CHAR(64) DEFAULT NULL,
+  email_verification_expires_at DATETIME DEFAULT NULL,
+  email_verification_attempts INT NOT NULL DEFAULT 0,
   status VARCHAR(30) NOT NULL DEFAULT 'active',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -36,12 +45,42 @@ CREATE TABLE IF NOT EXISTS categories (
   name VARCHAR(120) NOT NULL,
   slug VARCHAR(150) NOT NULL,
   description TEXT DEFAULT NULL,
+  image_url VARCHAR(500) DEFAULT NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_categories_slug (slug),
   KEY idx_categories_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS articles (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  part VARCHAR(10) NOT NULL,
+  part_title VARCHAR(200) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  slug VARCHAR(280) NOT NULL,
+  article_range VARCHAR(60) NOT NULL,
+  description TEXT NOT NULL,
+  what_it_means TEXT DEFAULT NULL,
+  why_it_matters TEXT DEFAULT NULL,
+  key_features TEXT DEFAULT NULL,
+  display_order INT NOT NULL DEFAULT 1,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_articles_slug (slug),
+  KEY idx_articles_active (is_active),
+  KEY idx_articles_order (display_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS daily_questions (
+  id INT NOT NULL AUTO_INCREMENT,
+  category VARCHAR(100) NOT NULL,
+  question TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS levels (
@@ -65,6 +104,7 @@ CREATE TABLE IF NOT EXISTS quizzes (
   title VARCHAR(180) NOT NULL,
   slug VARCHAR(180) NOT NULL,
   description TEXT DEFAULT NULL,
+  image_url VARCHAR(500) DEFAULT NULL,
   difficulty_level VARCHAR(30) NOT NULL DEFAULT 'medium',
   total_questions INT NOT NULL DEFAULT 0,
   time_limit_seconds INT DEFAULT NULL,
@@ -275,6 +315,49 @@ CREATE TABLE IF NOT EXISTS user_achievements (
     ON DELETE CASCADE,
   CONSTRAINT fk_user_achievements_achievement
     FOREIGN KEY (achievement_id) REFERENCES achievements (id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS translations (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  entity_type VARCHAR(32) NOT NULL,
+  entity_id BIGINT UNSIGNED NOT NULL,
+  field_name VARCHAR(64) NOT NULL,
+  lang_code VARCHAR(5) NOT NULL,
+  translated_text TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_translations_entity_field_lang (entity_type, entity_id, field_name, lang_code),
+  KEY idx_translations_lookup (entity_type, lang_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS support_requests (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  subject VARCHAR(150) NOT NULL,
+  message TEXT NOT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'open',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_support_requests_user_id (user_id),
+  CONSTRAINT fk_support_requests_user FOREIGN KEY (user_id) REFERENCES users (id) ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  admin_user_id BIGINT UNSIGNED NOT NULL,
+  method VARCHAR(10) NOT NULL,
+  path VARCHAR(500) NOT NULL,
+  status_code SMALLINT UNSIGNED NOT NULL,
+  request_body TEXT DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_admin_audit_log_admin_user_id (admin_user_id),
+  KEY idx_admin_audit_log_created_at (created_at),
+  CONSTRAINT fk_admin_audit_log_user
+    FOREIGN KEY (admin_user_id) REFERENCES users (id)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

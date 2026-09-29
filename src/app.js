@@ -1,8 +1,13 @@
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
+const pinoHttp = require('pino-http');
+const multer = require('multer');
 const apiRoutesV1 = require('./routes/v1');
 const { corsOrigin } = require('./config/env');
 const { AppError } = require('./utils/errors');
+const { UPLOAD_ROOT } = require('./middleware/upload');
+const logger = require('./utils/logger');
 
 const app = express();
 
@@ -17,9 +22,18 @@ const corsOptions =
         credentials: true,
       };
 
+app.use(
+  pinoHttp({
+    logger,
+    // Access tokens and refresh cookies are secrets; never let them reach the logs.
+    redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
+  })
+);
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// Bundled artwork (e.g. category cover images) — see public/.
+app.use('/assets', express.static(path.join(__dirname, '..', 'public')));
 
 app.get('/', (req, res) => {
   res.json({
@@ -28,6 +42,7 @@ app.get('/', (req, res) => {
   });
 });
 
+app.use('/uploads', express.static(UPLOAD_ROOT));
 app.use('/api/v1', apiRoutesV1);
 
 app.use((req, res) => {
@@ -37,13 +52,19 @@ app.use((req, res) => {
 });
 
 app.use((error, req, res, next) => {
-  console.error(error);
+  (req.log || logger).error({ err: error }, 'Request failed');
 
   if (error instanceof AppError) {
     return res.status(error.statusCode).json({
       message: error.message,
       details: error.details,
     });
+  }
+
+  if (error instanceof multer.MulterError) {
+    const message =
+      error.code === 'LIMIT_FILE_SIZE' ? 'Image must be 5MB or smaller' : 'Invalid file upload';
+    return res.status(400).json({ message });
   }
 
   if (error && error.code === 'ER_DUP_ENTRY') {

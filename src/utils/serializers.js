@@ -24,6 +24,9 @@ function serializeUser(row) {
     fullName: row.full_name,
     email: row.email,
     phone: row.phone,
+    profession: row.profession,
+    avatarUrl: row.avatar_url,
+    emailVerified: Boolean(row.email_verified),
     status: row.status,
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
@@ -36,9 +39,51 @@ function serializeCategory(row) {
     name: row.name,
     slug: row.slug,
     description: row.description,
+    imageUrl: row.image_url,
     isActive: Boolean(row.is_active),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
+  };
+}
+
+function serializeArticle(row) {
+  return {
+    id: Number(row.id),
+    part: row.part,
+    partTitle: row.part_title,
+    title: row.title,
+    slug: row.slug,
+    articleRange: row.article_range,
+    description: row.description,
+    whatItMeans: row.what_it_means,
+    whyItMatters: row.why_it_matters,
+    keyFeatures: row.key_features,
+    displayOrder: Number(row.display_order),
+    isActive: Boolean(row.is_active),
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at),
+  };
+}
+
+function serializeDailyQuestion(row) {
+  return {
+    id: Number(row.id),
+    category: row.category,
+    question: row.question,
+    answer: row.answer,
+  };
+}
+
+function serializeLegalUpdate(row) {
+  return {
+    id: Number(row.id),
+    category: row.category,
+    title: row.title,
+    summary: row.summary,
+    updateDate: toDateString(row.update_date),
+    source: row.source,
+    imageUrl: row.image_url,
+    createdAt: toIsoString(row.created_at),
   };
 }
 
@@ -49,6 +94,7 @@ function serializeQuiz(row) {
     title: row.title,
     slug: row.slug,
     description: row.description,
+    imageUrl: row.image_url,
     difficulty: row.difficulty_level,
     totalQuestions: Number(row.total_questions),
     timeLimitSeconds: row.time_limit_seconds === null ? null : Number(row.time_limit_seconds),
@@ -233,6 +279,9 @@ function serializeLeaderboardEntry(row, rank) {
 module.exports = {
   serializeUser,
   serializeCategory,
+  serializeArticle,
+  serializeDailyQuestion,
+  serializeLegalUpdate,
   serializeQuiz,
   serializeQuestion,
   serializeQuestionOption,

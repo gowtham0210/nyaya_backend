@@ -1,0 +1,20 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: nyaya-mysql
+    restart: unless-stopped
+
+    environment:
+      MYSQL_ROOT_PASSWORD: NyayaRoot@2026
+      MYSQL_DATABASE: nyaya
+      MYSQL_USER: nyaya_app
+      MYSQL_PASSWORD: NyayaApp@2026
+
+    ports:
+      - "3307:3306"
+
+    volumes:
+      - nyaya_mysql_data:/var/lib/mysql
+
+volumes:
+  nyaya_mysql_data:
