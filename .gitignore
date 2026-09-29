@@ -4,3 +4,7 @@ npm-debug.log*
 frontend/dist/
 frontend/.env
 uploads/
+.env.*
+!.env.example
+*.log
+yarn-debug.log*
