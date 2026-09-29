@@ -46,7 +46,7 @@ router.patch(
     );
 
     const [rows] = await pool.execute(
-      'SELECT id, full_name, email, phone, profession, avatar_url, email_verified, status, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, full_name, email, phone, profession, avatar_url, email_verified, phone_verified, status, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
       [req.auth.userId]
     );
 
@@ -74,7 +74,7 @@ router.post(
     deleteUploadedFile(rows[0].avatar_url);
 
     const [updatedRows] = await pool.execute(
-      'SELECT id, full_name, email, phone, profession, avatar_url, email_verified, status, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, full_name, email, phone, profession, avatar_url, email_verified, phone_verified, status, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
       [req.auth.userId]
     );
 
