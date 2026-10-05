@@ -4,13 +4,17 @@ const cors = require('cors');
 const pinoHttp = require('pino-http');
 const multer = require('multer');
 const apiRoutesV1 = require('./routes/v1');
-const { corsOrigin } = require('./config/env');
+const { corsOrigin, trustProxy } = require('./config/env');
 const { AppError } = require('./utils/errors');
 const { UPLOAD_ROOT } = require('./middleware/upload');
 const { PG_ERRORS } = require('./config/database');
 const logger = require('./utils/logger');
 
 const app = express();
+
+if (trustProxy) {
+  app.set('trust proxy', trustProxy);
+}
 
 const corsOptions =
   corsOrigin === '*'

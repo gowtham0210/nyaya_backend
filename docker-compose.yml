@@ -40,7 +40,9 @@ services:
     container_name: nyaya-api
     restart: unless-stopped
     ports:
-      - "${API_PORT:-5050}:5000"
+      # Behind a reverse proxy on the same host, set API_BIND=127.0.0.1 so the
+      # API is only reachable through the proxy (required with TRUST_PROXY).
+      - "${API_BIND:-0.0.0.0}:${API_PORT:-5050}:5000"
     volumes:
       - nyaya_uploads:/app/uploads
     depends_on:

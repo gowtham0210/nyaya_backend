@@ -38,6 +38,11 @@ module.exports = {
   port: Number(process.env.PORT) || 5000,
   nodeEnv: process.env.NODE_ENV || 'development',
   corsOrigin: process.env.CORS_ORIGIN || '*',
+  // Number of reverse proxies in front of the app (e.g. 1 behind nginx), so
+  // req.ip - and with it the per-IP rate limits - is the real client, not the
+  // proxy. Leave unset when clients can reach the app directly: trusting
+  // X-Forwarded-For then would let anyone spoof their IP past the limits.
+  trustProxy: Number(process.env.TRUST_PROXY) || 0,
   authCookies: {
     refreshTokenName: process.env.REFRESH_COOKIE_NAME || 'nyaya_refresh_token',
     sameSite: process.env.REFRESH_COOKIE_SAME_SITE || 'strict',
