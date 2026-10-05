@@ -18,7 +18,7 @@ router.get('/random', asyncHandler(async (req, res) => {
   const count = Math.min(Math.max(parseInt(req.query.count, 10) || 2, 1), 10);
   const lang = typeof req.query.lang === 'string' ? req.query.lang : null;
   const [rows] = await pool.query(
-    'SELECT * FROM daily_questions ORDER BY RAND() LIMIT ?',
+    'SELECT * FROM daily_questions ORDER BY RANDOM() LIMIT ?',
     [count]
   );
   const items = await applyTranslations(

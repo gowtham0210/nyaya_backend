@@ -1,0 +1,130 @@
+# Deploys the Docker stack (docker-compose.yml) to the server over SSH.
+#
+# Copies the checked-out commit to the server with rsync, then rebuilds and
+# restarts the containers there. The server keeps its own .env and data:
+# .env, uploads/ and the MySQL volume are never touched by a deploy.
+#
+# Repository secrets (Settings -> Secrets and variables -> Actions):
+#   SSH_HOST         server IP or hostname
+#   SSH_USER         login user; must be able to run `docker` (docker group or root)
+#   SSH_PRIVATE_KEY  private key whose public half is in the user's authorized_keys
+#   SSH_PORT         optional, defaults to 22
+#   SSH_KNOWN_HOSTS  optional but recommended: output of `ssh-keyscan -H <host>`.
+#                    Without it the host key is trusted on first sight each run.
+#   DEPLOY_PATH      optional, defaults to ~/nyaya_backend
+#
+# One-time server setup: install Docker + the compose plugin and rsync, then put
+# the production .env in DEPLOY_PATH before the first deploy. The database is
+# the existing Postgres container; see docker-compose.yml for how the API joins it.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never run two deploys at once; a newer push waits for the current one.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/nyaya_backend' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ] || [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "::error::SSH_HOST, SSH_USER and SSH_PRIVATE_KEY secrets are required."
+            exit 1
+          fi
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          if [ -n "$SSH_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "::warning::SSH_KNOWN_HOSTS not set; trusting the server's host key as scanned now."
+            ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" > ~/.ssh/known_hosts
+          fi
+
+          cat > ~/.ssh/config <<EOF
+          Host deploy-target
+            HostName $SSH_HOST
+            User $SSH_USER
+            Port $SSH_PORT
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            ServerAliveInterval 30
+          EOF
+
+      - name: Check server prerequisites
+        run: |
+          ssh deploy-target "DEPLOY_PATH=$DEPLOY_PATH bash -s" <<'EOF'
+          set -e
+          command -v rsync >/dev/null || { echo "rsync is not installed on the server"; exit 1; }
+          docker compose version >/dev/null || { echo "docker compose is not available to $(whoami)"; exit 1; }
+          mkdir -p "$DEPLOY_PATH"
+          if [ ! -f "$DEPLOY_PATH/.env" ]; then
+            echo "Missing $DEPLOY_PATH/.env on the server - create it (see .env.example) before deploying."
+            exit 1
+          fi
+          EOF
+
+      - name: Sync code
+        run: |
+          # --delete removes files dropped from the repo; the excluded paths are
+          # protected from it, so server-side config and uploads survive.
+          rsync -az --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.env' \
+            --exclude 'node_modules/' \
+            --exclude 'frontend/node_modules/' \
+            --exclude 'frontend/dist/' \
+            --exclude 'uploads/' \
+            --exclude '*.log' \
+            ./ "deploy-target:$DEPLOY_PATH/"
+
+      - name: Rebuild and restart containers
+        run: |
+          ssh deploy-target "DEPLOY_PATH=$DEPLOY_PATH bash -s" <<'EOF'
+          set -e
+          cd "$DEPLOY_PATH"
+          docker compose up -d --build --remove-orphans
+          docker image prune -f
+          EOF
+
+      - name: Wait for API health
+        run: |
+          ssh deploy-target "DEPLOY_PATH=$DEPLOY_PATH bash -s" <<'EOF'
+          cd "$DEPLOY_PATH"
+          for i in $(seq 1 30); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' nyaya-api 2>/dev/null || echo missing)
+            echo "nyaya-api: $status"
+            [ "$status" = healthy ] && exit 0
+            sleep 5
+          done
+          echo "API did not become healthy in time. Recent logs:"
+          docker compose logs --tail=100 db-init api
+          exit 1
+          EOF
+
+      - name: Clean up key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

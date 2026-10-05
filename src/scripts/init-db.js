@@ -4,23 +4,16 @@ const { pool } = require('../config/database');
 
 const schemaFilePath = path.resolve(__dirname, '../database/schema.sql');
 
-function splitSqlStatements(sqlContent) {
-  return sqlContent
-    .split(/;\s*(?:\r?\n|$)/)
-    .map((statement) => statement.trim())
-    .filter(Boolean);
-}
-
+// Applies the whole schema in one round trip. It's sent without parameters, so
+// PostgreSQL runs it as a multi-statement script (function bodies and DO blocks
+// included), all inside one implicit transaction: it applies fully or not at all.
+// Every statement is idempotent, so this is safe on an existing database too.
 async function run() {
   try {
     const sqlContent = await fs.readFile(schemaFilePath, 'utf8');
-    const statements = splitSqlStatements(sqlContent);
+    await pool.query(sqlContent);
 
-    for (const statement of statements) {
-      await pool.query(statement);
-    }
-
-    console.log(`Database schema initialized successfully with ${statements.length} statements.`);
+    console.log('Database schema is up to date.');
   } catch (error) {
     console.error('Database schema initialization failed.');
     console.error(error.message);

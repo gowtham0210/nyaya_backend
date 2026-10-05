@@ -1,0 +1,17 @@
+.git
+.claude
+.DS_Store
+node_modules
+npm-debug.log*
+*.log
+.env
+.env.*
+!.env.example
+uploads
+frontend
+docs
+src/tests
+*.postman_collection.json
+start-backend*
+Dockerfile
+docker-compose*.yml

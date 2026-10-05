@@ -4,7 +4,7 @@
  * Article translations (116 rows, much larger) are seeded separately by
  * seed-translations-articles.js.
  *
- * Safe to re-run: INSERT ... ON DUPLICATE KEY UPDATE keyed on
+ * Safe to re-run: INSERT ... ON CONFLICT DO UPDATE keyed on
  * (entity_type, entity_id, field_name, lang_code).
  */
 const { pool } = require('../config/database');
@@ -277,7 +277,7 @@ async function run() {
       `
         INSERT INTO translations (entity_type, entity_id, field_name, lang_code, translated_text)
         VALUES (?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE translated_text = VALUES(translated_text)
+        ON CONFLICT (entity_type, entity_id, field_name, lang_code) DO UPDATE SET translated_text = EXCLUDED.translated_text
       `,
       row
     );

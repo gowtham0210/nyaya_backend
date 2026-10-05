@@ -65,7 +65,7 @@ router.post(
             password_hash,
             status
           )
-          VALUES (?, ?, ?, ?, 'active')
+          VALUES (?, ?, ?, ?, 'active') RETURNING id
         `,
         [fullName, email, phone, passwordHash]
       );
@@ -188,7 +188,7 @@ router.post(
             phone_verified,
             status
           )
-          VALUES (?, ?, ?, ?, ?, ?, 'active')
+          VALUES (?, ?, ?, ?, ?, ?, 'active') RETURNING id
         `,
         [fullName, profession, phone, passwordHash, decodedToken ? decodedToken.uid : null, decodedToken ? 1 : 0]
       );

@@ -13,7 +13,7 @@ router.get(
         SELECT *
         FROM practice_settings
         WHERE is_enabled = 1
-        ORDER BY FIELD(difficulty_level, 'easy', 'medium', 'hard')
+        ORDER BY array_position(ARRAY['easy', 'medium', 'hard'], difficulty_level::text)
       `
     );
 

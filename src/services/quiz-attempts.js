@@ -30,10 +30,10 @@ async function recalculateAttempt(connection, attemptId) {
   const [summaryRows] = await connection.execute(
     `
       SELECT
-        COUNT(*) AS answeredQuestions,
-        SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) AS correctAnswers,
-        SUM(CASE WHEN is_correct = 0 THEN 1 ELSE 0 END) AS wrongAnswers,
-        COALESCE(SUM(points_earned), 0) AS totalPointsEarned
+        COUNT(*) AS "answeredQuestions",
+        SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) AS "correctAnswers",
+        SUM(CASE WHEN is_correct = 0 THEN 1 ELSE 0 END) AS "wrongAnswers",
+        COALESCE(SUM(points_earned), 0) AS "totalPointsEarned"
       FROM question_attempts
       WHERE quiz_attempt_id = ?
     `,
@@ -106,7 +106,7 @@ async function buildQuizResult(connection, attemptId, userId) {
       INNER JOIN achievements a ON a.id = ua.achievement_id
       WHERE ua.user_id = ?
         AND ua.unlocked_at >= ?
-        AND ua.unlocked_at <= DATE_ADD(?, INTERVAL 5 MINUTE)
+        AND ua.unlocked_at <= (?::timestamptz + INTERVAL '5 minutes')
       ORDER BY ua.unlocked_at ASC, ua.id ASC
     `,
     [userId, attempt.started_at, attempt.submitted_at]
@@ -117,7 +117,7 @@ async function buildQuizResult(connection, attemptId, userId) {
       FROM point_transactions
       WHERE user_id = ?
         AND created_at >= ?
-        AND created_at <= DATE_ADD(?, INTERVAL 5 MINUTE)
+        AND created_at <= (?::timestamptz + INTERVAL '5 minutes')
       ORDER BY created_at ASC, id ASC
     `,
     [userId, attempt.started_at, attempt.submitted_at]

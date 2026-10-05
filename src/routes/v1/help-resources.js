@@ -62,7 +62,7 @@ router.get(
 
     const [rows] = await pool.query(
       `
-        SELECT r.*, GROUP_CONCAT(c.name ORDER BY c.display_order SEPARATOR '||') AS category_names
+        SELECT r.*, string_agg(c.name, '||' ORDER BY c.display_order) AS category_names
         FROM help_resources r
         LEFT JOIN help_resource_categories hrc ON hrc.resource_id = r.id
         LEFT JOIN support_categories c ON c.id = hrc.category_id

@@ -88,8 +88,8 @@ async function run() {
       `
         INSERT INTO categories (name, slug, description, image_url, is_active)
         VALUES (?, ?, ?, ?, 1)
-        ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description),
-          image_url = VALUES(image_url), is_active = 1
+        ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description,
+          image_url = EXCLUDED.image_url, is_active = 1
       `,
       [category.name, category.slug, category.description, `/assets/categories/${category.slug}.png`]
     );
@@ -111,7 +111,7 @@ async function run() {
         `
           INSERT INTO translations (entity_type, entity_id, field_name, lang_code, translated_text)
           VALUES ('category', ?, 'name', ?, ?)
-          ON DUPLICATE KEY UPDATE translated_text = VALUES(translated_text)
+          ON CONFLICT (entity_type, entity_id, field_name, lang_code) DO UPDATE SET translated_text = EXCLUDED.translated_text
         `,
         [idBySlug.get(category.slug), lang, name]
       );

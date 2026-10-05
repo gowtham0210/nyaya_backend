@@ -1,0 +1,23 @@
+# Local PostgreSQL for `npm run dev` (the API itself runs on the host).
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#   npm run db:init && npm run db:seed-admin && npm run db:seed-content
+#
+# Matching .env: DB_HOST=127.0.0.1 DB_PORT=5433 DB_USER=nyaya DB_PASSWORD=nyaya DB_NAME=nyaya
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nyaya-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nyaya
+      POSTGRES_PASSWORD: nyaya
+      POSTGRES_DB: nyaya
+    ports:
+      # Loopback only, and 5433 so it doesn't clash with a locally installed Postgres.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - nyaya_postgres_dev:/var/lib/postgresql/data
+
+volumes:
+  nyaya_postgres_dev:

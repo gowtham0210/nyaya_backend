@@ -2,26 +2,23 @@ const fs = require('fs');
 const path = require('path');
 const { pool } = require('../config/database');
 
-// Brings an EXISTING database up to date with schema changes made after it was
-// created. A brand-new database doesn't need this: `npm run db:init` builds it
-// straight from the current schema.sql, which already includes everything
-// below. This is for every other database (production, a teammate's local
-// copy, a fresh clone that already has data) that predates one of these
-// changes.
+// For schema changes that can't be written as idempotent statements in
+// schema.sql (data backfills, renames, type changes). Runs after db:init on
+// every deploy; there are none yet.
 //
-// Each file in ./migrations exports `up(connection)` and is also independently
-// idempotent (checks information_schema before altering), so running this
-// against a database that already has a column is a safe no-op - the
-// schema_migrations table is bookkeeping for "what ran and when", not the only
-// thing preventing a double-apply.
+// Each file in ./migrations exports `up(connection)` and runs once, in name
+// order, inside its own transaction (PostgreSQL DDL is transactional, so a
+// failed migration leaves nothing half-applied). Write them idempotently anyway
+// (check information_schema first) so a database built from a newer schema.sql
+// is a safe no-op.
 const migrationsDir = path.join(__dirname, '../database/migrations');
 
 async function ensureMigrationsTable(connection) {
   await connection.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       name VARCHAR(255) NOT NULL PRIMARY KEY,
-      applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
   `);
 }
 
@@ -34,8 +31,7 @@ async function run() {
     const [appliedRows] = await connection.query('SELECT name FROM schema_migrations');
     const applied = new Set(appliedRows.map((row) => row.name));
 
-    const files = fs
-      .readdirSync(migrationsDir)
+    const files = (fs.existsSync(migrationsDir) ? fs.readdirSync(migrationsDir) : [])
       .filter((file) => file.endsWith('.js'))
       .sort();
     const pending = files.filter((file) => !applied.has(file));

@@ -50,7 +50,7 @@ async function run() {
               password_hash,
               status
             )
-            VALUES (?, ?, NULL, ?, 'active')
+            VALUES (?, ?, NULL, ?, 'active') RETURNING id
           `,
           [adminFullName, adminEmail, passwordHash]
         );

@@ -60,7 +60,7 @@ async function insertTransaction(connection, userId, reason, amount, refundOfTra
   const [result] = await connection.execute(
     `
       INSERT INTO credit_transactions (user_id, reason, amount, refund_of_transaction_id)
-      VALUES (?, ?, ?, ?)
+      VALUES (?, ?, ?, ?) RETURNING id
     `,
     [userId, reason, amount, refundOfTransactionId]
   );
@@ -356,17 +356,19 @@ async function claimChest(connection, userId, chestType, chestIndex) {
     return { success: false, notReady: true, ...serializeSnapshot(credits, updatedAt) };
   }
 
-  try {
-    await connection.execute(
-      `
-        INSERT INTO credit_chest_claims (user_id, chest_type, chest_index, reward)
-        VALUES (?, ?, ?, ?)
-      `,
-      [userId, chestType, chestIndex, reward]
-    );
-  } catch (error) {
-    // Unique key on (user_id, chest_type, chest_index): a replayed claim
-    // lands here instead of paying out twice.
+  // Unique key on (user_id, chest_type, chest_index): a replayed claim inserts
+  // nothing instead of paying out twice. ON CONFLICT rather than catching the
+  // error, because a failed statement aborts the rest of a Postgres transaction.
+  const [claim] = await connection.execute(
+    `
+      INSERT INTO credit_chest_claims (user_id, chest_type, chest_index, reward)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT (user_id, chest_type, chest_index) DO NOTHING
+    `,
+    [userId, chestType, chestIndex, reward]
+  );
+
+  if (claim.affectedRows === 0) {
     const { credits, updatedAt } = await getSnapshotForUpdate(connection, userId);
     return { success: false, alreadyClaimed: true, ...serializeSnapshot(credits, updatedAt) };
   }

@@ -51,40 +51,40 @@ router.get(
     const [[categoryCounts]] = await pool.execute(
       `
         SELECT
-          SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS activeCount,
-          COUNT(*) AS totalCount
+          SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS "activeCount",
+          COUNT(*) AS "totalCount"
         FROM categories
       `
     );
     const [[quizCounts]] = await pool.execute(
       `
         SELECT
-          SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS activeCount,
-          COUNT(*) AS totalCount
+          SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS "activeCount",
+          COUNT(*) AS "totalCount"
         FROM quizzes
       `
     );
     const [[questionCounts]] = await pool.execute(
       `
         SELECT
-          SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS activeCount,
-          COUNT(*) AS totalCount
+          SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS "activeCount",
+          COUNT(*) AS "totalCount"
         FROM questions
       `
     );
-    const [[levelCounts]] = await pool.execute('SELECT COUNT(*) AS totalCount FROM levels');
+    const [[levelCounts]] = await pool.execute('SELECT COUNT(*) AS "totalCount" FROM levels');
     const [[attemptSummary]] = await pool.execute(
       `
         SELECT
-          COUNT(*) AS attemptsToday,
+          COUNT(*) AS "attemptsToday",
           COUNT(DISTINCT CASE
-            WHEN started_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY) THEN user_id
+            WHEN started_at >= CURRENT_TIMESTAMP - INTERVAL '7 days' THEN user_id
             ELSE NULL
-          END) AS activeUsers7d,
+          END) AS "activeUsers7d",
           COUNT(DISTINCT CASE
-            WHEN started_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY) THEN user_id
+            WHEN started_at >= CURRENT_TIMESTAMP - INTERVAL '30 days' THEN user_id
             ELSE NULL
-          END) AS activeUsers30d
+          END) AS "activeUsers30d"
         FROM quiz_attempts
       `
     );
@@ -330,7 +330,7 @@ router.post(
           description,
           is_active
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?, ?, ?) RETURNING id
       `,
       [
         payload.name,
@@ -430,7 +430,7 @@ router.post(
           level_id,
           is_active
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
       `,
       [
         parseId(payload.categoryId, 'categoryId'),
@@ -543,7 +543,7 @@ router.post(
           display_order,
           is_active
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
       `,
       [
         parseId(payload.quizId, 'quizId'),
@@ -630,7 +630,7 @@ router.post(
           is_correct,
           display_order
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?, ?, ?) RETURNING id
       `,
       [questionId, payload.optionText, payload.isCorrect ? 1 : 0, Number(payload.displayOrder)]
     );
@@ -700,7 +700,7 @@ router.post(
           badge_icon,
           reward_description
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?) RETURNING id
       `,
       [
         payload.code,
@@ -775,7 +775,7 @@ router.patch(
     const sets = update ? [update.setClause] : [];
     const values = update ? [...update.values] : [];
     if (body.markVerified === true) {
-      sets.push("verification_status = 'verified'", 'last_verified_at = UTC_TIMESTAMP()');
+      sets.push("verification_status = 'verified'", 'last_verified_at = CURRENT_TIMESTAMP');
     }
     if (!sets.length) {
       throw badRequest('At least one updatable field is required');
@@ -804,9 +804,6 @@ router.get(
     }
 
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-    // pool.query rather than pool.execute: MySQL rejects bound parameters
-    // in a prepared statement's LIMIT/OFFSET clause. The bounds come from
-    // getPagination, which only ever returns validated integers.
     const [rows] = await pool.query(
       `
         SELECT l.*, u.full_name AS admin_full_name, u.email AS admin_email
@@ -861,7 +858,7 @@ router.get(
       `
         SELECT *
         FROM practice_settings
-        ORDER BY FIELD(difficulty_level, 'easy', 'medium', 'hard')
+        ORDER BY array_position(ARRAY['easy', 'medium', 'hard'], difficulty_level::text)
       `
     );
 
