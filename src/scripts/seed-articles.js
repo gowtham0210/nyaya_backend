@@ -1,7 +1,7 @@
 /**
  * Seeds the `articles` table with the full Indian Constitution index
  * (Parts I-XXII, Articles 1-395), matching the exact content provided.
- * Safe to re-run: uses INSERT IGNORE against the unique `slug` column.
+ * Safe to re-run: uses ON CONFLICT DO NOTHING against the unique `slug` column.
  */
 const { pool } = require('../config/database');
 
@@ -187,9 +187,9 @@ async function run() {
       const slug = slugify(`${articleRange}-${description}`).slice(0, 270);
       const [result] = await pool.query(
         `
-          INSERT IGNORE INTO articles
+          INSERT INTO articles
             (part, part_title, title, slug, article_range, description, display_order, is_active)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 1) ON CONFLICT DO NOTHING
         `,
         [part, partTitle, description, slug, articleRange, description, i + 1]
       );

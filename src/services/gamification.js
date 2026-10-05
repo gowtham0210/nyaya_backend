@@ -49,7 +49,7 @@ async function ensureUserSummaryRows(connection, userId) {
         accuracy_percentage
       )
       VALUES (?, 0, ?, 0, 0, 0, 0, 0, 0.00)
-      ON DUPLICATE KEY UPDATE user_id = user_id
+      ON CONFLICT (user_id) DO NOTHING
     `,
     [userId, defaultLevelId]
   );
@@ -64,7 +64,7 @@ async function ensureUserSummaryRows(connection, userId) {
         streak_start_date
       )
       VALUES (?, 0, 0, NULL, NULL)
-      ON DUPLICATE KEY UPDATE user_id = user_id
+      ON CONFLICT (user_id) DO NOTHING
     `,
     [userId]
   );
@@ -215,7 +215,7 @@ async function unlockAchievements(connection, userId, metrics, unlockedAt) {
           unlocked_at,
           reward_points
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?, ?, ?) RETURNING id
       `,
       [userId, achievementId, unlockedAt, Number(achievement.reward_points)]
     );

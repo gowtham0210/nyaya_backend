@@ -94,7 +94,7 @@ router.get(
               0
             )
           )
-        ORDER BY RAND()
+        ORDER BY RANDOM()
         LIMIT ?
       `,
       [req.auth.userId, limit]

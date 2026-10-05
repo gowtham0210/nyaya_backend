@@ -120,7 +120,7 @@ router.get(
       `
         SELECT COUNT(*) AS active_sessions
         FROM refresh_tokens
-        WHERE user_id = ? AND revoked_at IS NULL AND expires_at > UTC_TIMESTAMP()
+        WHERE user_id = ? AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP
       `,
       [req.auth.userId]
     );
@@ -133,7 +133,7 @@ router.post(
   '/me/logout-all',
   asyncHandler(async (req, res) => {
     await pool.execute(
-      'UPDATE refresh_tokens SET revoked_at = UTC_TIMESTAMP() WHERE user_id = ? AND revoked_at IS NULL',
+      'UPDATE refresh_tokens SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ? AND revoked_at IS NULL',
       [req.auth.userId]
     );
 
@@ -152,7 +152,7 @@ router.post(
     }
 
     const [result] = await pool.execute(
-      'INSERT INTO support_requests (user_id, subject, message) VALUES (?, ?, ?)',
+      'INSERT INTO support_requests (user_id, subject, message) VALUES (?, ?, ?) RETURNING id',
       [req.auth.userId, subject.slice(0, 150), message]
     );
 

@@ -60,7 +60,7 @@ async function insertTransaction(connection, userId, reason, amount, refundOfTra
   const [result] = await connection.execute(
     `
       INSERT INTO credit_transactions (user_id, reason, amount, refund_of_transaction_id)
-      VALUES (?, ?, ?, ?)
+      VALUES (?, ?, ?, ?) RETURNING id
     `,
     [userId, reason, amount, refundOfTransactionId]
   );

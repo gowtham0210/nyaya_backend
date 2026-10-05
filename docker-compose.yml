@@ -1,20 +1,69 @@
+# Production stack: API + admin frontend, using an existing PostgreSQL container.
+#
+#   docker compose up -d --build
+#
+# The database is not part of this stack. The API joins the Docker network the
+# Postgres container lives on (DB_NETWORK, default yercaud_default) and reaches
+# it by container name, so set DB_HOST to that name in .env (e.g.
+# yercaud-postgres-1, port 5432). Postgres never needs to be published on the host.
+#
+# All app config and secrets come from .env next to this file. Compose also
+# reads it for the ${...} values below.
+#
+# For local development, run Postgres alone with docker-compose.dev.yml and the
+# API with `npm run dev`.
+x-api: &api
+  build: .
+  image: nyaya-api
+  env_file: .env
+  environment:
+    # The image has no dev dependencies; non-production would load pino-pretty.
+    NODE_ENV: production
+    PORT: 5000
+    # NODE_ENV=production defaults refresh cookies to Secure, which browsers
+    # drop over plain http. Set REFRESH_COOKIE_SECURE=true in .env behind HTTPS.
+    REFRESH_COOKIE_SECURE: ${REFRESH_COOKIE_SECURE:-false}
+  networks:
+    - default
+    - db
+
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: nyaya-mysql
+  # One-shot: applies schema.sql (idempotent) and pending migrations, then exits.
+  # The API only starts once this succeeds.
+  db-init:
+    <<: *api
+    command: ["sh", "-c", "node src/scripts/init-db.js && node src/scripts/migrate.js"]
+    restart: "no"
+
+  api:
+    <<: *api
+    container_name: nyaya-api
     restart: unless-stopped
-
-    environment:
-      MYSQL_ROOT_PASSWORD: NyayaRoot@2026
-      MYSQL_DATABASE: nyaya
-      MYSQL_USER: nyaya_app
-      MYSQL_PASSWORD: NyayaApp@2026
-
     ports:
-      - "3307:3306"
-
+      - "${API_PORT:-5050}:5000"
     volumes:
-      - nyaya_mysql_data:/var/lib/mysql
+      - nyaya_uploads:/app/uploads
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:5050/api/v1}
+    image: nyaya-frontend
+    container_name: nyaya-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - api
+
+networks:
+  db:
+    name: ${DB_NETWORK:-yercaud_default}
+    external: true
 
 volumes:
-  nyaya_mysql_data:
+  nyaya_uploads:

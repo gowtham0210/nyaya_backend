@@ -6,7 +6,7 @@ async function startServer() {
     const { pool, checkDatabaseConnection } = require('./config/database');
     const app = require('./app');
     const dbStatus = await checkDatabaseConnection();
-    logger.info(`MySQL connected successfully to "${dbStatus.databaseName}".`);
+    logger.info(`PostgreSQL connected successfully to "${dbStatus.databaseName}".`);
 
     const server = app.listen(port, () => {
       logger.info(`Nyaya API server is running on http://localhost:${port}`);

@@ -1,5 +1,5 @@
 /**
- * Creates and seeds the "Help & Resources" directory: Indian states/UTs,
+ * Seeds the "Help & Resources" directory: Indian states/UTs,
  * support categories, and helpline resources.
  *
  * Only NATIONAL helplines are seeded (state_code 'IN'); they apply in every
@@ -13,52 +13,7 @@
  */
 const { pool } = require('../config/database');
 
-const DDL = [
-  `CREATE TABLE IF NOT EXISTS indian_states (
-    code VARCHAR(4) NOT NULL,
-    name VARCHAR(80) NOT NULL,
-    kind VARCHAR(20) NOT NULL DEFAULT 'state',
-    PRIMARY KEY (code),
-    UNIQUE KEY uq_indian_states_name (name)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-  `CREATE TABLE IF NOT EXISTS support_categories (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    slug VARCHAR(60) NOT NULL,
-    name VARCHAR(80) NOT NULL,
-    display_order INT NOT NULL DEFAULT 1,
-    PRIMARY KEY (id),
-    UNIQUE KEY uq_support_categories_slug (slug)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-  `CREATE TABLE IF NOT EXISTS help_resources (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    state_code VARCHAR(4) NOT NULL DEFAULT 'IN',
-    resource_name VARCHAR(160) NOT NULL,
-    phone_number VARCHAR(40) DEFAULT NULL,
-    toll_free VARCHAR(40) DEFAULT NULL,
-    email VARCHAR(160) DEFAULT NULL,
-    website_url VARCHAR(300) DEFAULT NULL,
-    service_hours VARCHAR(80) DEFAULT NULL,
-    availability VARCHAR(80) DEFAULT NULL,
-    source_name VARCHAR(160) NOT NULL,
-    source_url VARCHAR(300) NOT NULL,
-    verification_status VARCHAR(30) NOT NULL DEFAULT 'needs_verification',
-    last_verified_at DATETIME DEFAULT NULL,
-    is_active TINYINT(1) NOT NULL DEFAULT 1,
-    display_order INT NOT NULL DEFAULT 1,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    UNIQUE KEY uq_help_resources_state_name (state_code, resource_name),
-    KEY idx_help_resources_state (state_code, is_active)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-  `CREATE TABLE IF NOT EXISTS help_resource_categories (
-    resource_id BIGINT UNSIGNED NOT NULL,
-    category_id INT UNSIGNED NOT NULL,
-    PRIMARY KEY (resource_id, category_id),
-    CONSTRAINT fk_hrc_resource FOREIGN KEY (resource_id) REFERENCES help_resources (id) ON DELETE CASCADE,
-    CONSTRAINT fk_hrc_category FOREIGN KEY (category_id) REFERENCES support_categories (id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-];
+// The tables themselves are created by src/database/schema.postgres.sql (npm run db:init).
 
 const STATES = [
   ['AN', 'Andaman and Nicobar Islands', 'ut'], ['AP', 'Andhra Pradesh', 'state'], ['AR', 'Arunachal Pradesh', 'state'],
@@ -173,11 +128,10 @@ async function pageMentions(url, wanted) {
 }
 
 async function run() {
-  for (const statement of DDL) await pool.query(statement);
 
   for (const [code, name, kind] of STATES) {
     await pool.execute(
-      'INSERT INTO indian_states (code, name, kind) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), kind = VALUES(kind)',
+      'INSERT INTO indian_states (code, name, kind) VALUES (?, ?, ?) ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, kind = EXCLUDED.kind',
       [code, name, kind]
     );
   }
@@ -186,7 +140,7 @@ async function run() {
   for (const [slug, name] of CATEGORIES) {
     order += 1;
     await pool.execute(
-      'INSERT INTO support_categories (slug, name, display_order) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), display_order = VALUES(display_order)',
+      'INSERT INTO support_categories (slug, name, display_order) VALUES (?, ?, ?) ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, display_order = EXCLUDED.display_order',
       [slug, name, order]
     );
   }
@@ -205,11 +159,11 @@ async function run() {
         INSERT INTO help_resources (state_code, resource_name, phone_number, toll_free, email, website_url,
           service_hours, availability, source_name, source_url, verification_status, last_verified_at, display_order)
         VALUES ('IN', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE phone_number = VALUES(phone_number), toll_free = VALUES(toll_free),
-          email = VALUES(email), website_url = VALUES(website_url), service_hours = VALUES(service_hours),
-          source_name = VALUES(source_name), source_url = VALUES(source_url),
-          verification_status = VALUES(verification_status), last_verified_at = VALUES(last_verified_at),
-          display_order = VALUES(display_order)
+        ON CONFLICT (state_code, resource_name) DO UPDATE SET phone_number = EXCLUDED.phone_number, toll_free = EXCLUDED.toll_free,
+          email = EXCLUDED.email, website_url = EXCLUDED.website_url, service_hours = EXCLUDED.service_hours,
+          source_name = EXCLUDED.source_name, source_url = EXCLUDED.source_url,
+          verification_status = EXCLUDED.verification_status, last_verified_at = EXCLUDED.last_verified_at,
+          display_order = EXCLUDED.display_order
       `,
       [
         r.name, r.phone || null, r.tollFree || null, r.email || null, r.site, r.hours || null,
@@ -219,7 +173,7 @@ async function run() {
     );
     const [[row]] = await pool.execute('SELECT id FROM help_resources WHERE state_code = ? AND resource_name = ?', ['IN', r.name]);
     for (const slug of r.categories) {
-      await pool.execute('INSERT IGNORE INTO help_resource_categories (resource_id, category_id) VALUES (?, ?)', [row.id, catId.get(slug)]);
+      await pool.execute('INSERT INTO help_resource_categories (resource_id, category_id) VALUES (?, ?) ON CONFLICT DO NOTHING', [row.id, catId.get(slug)]);
     }
     console.log(verified ? 'verified          ' : 'needs_verification', r.name);
   }

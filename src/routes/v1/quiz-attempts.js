@@ -37,7 +37,7 @@ router.post(
       }
 
       const [countRows] = await connection.execute(
-        'SELECT COUNT(*) AS totalQuestions FROM questions WHERE quiz_id = ? AND is_active = 1',
+        'SELECT COUNT(*) AS "totalQuestions" FROM questions WHERE quiz_id = ? AND is_active = 1',
         [quizId]
       );
       const totalQuestions = Number(countRows[0].totalQuestions);
@@ -62,7 +62,7 @@ router.post(
             total_score,
             total_points_earned
           )
-          VALUES (?, ?, ?, 'in_progress', ?, 0, 0, 0, ?, 0, 0)
+          VALUES (?, ?, ?, 'in_progress', ?, 0, 0, 0, ?, 0, 0) RETURNING id
         `,
         [req.auth.userId, quizId, startedAt, totalQuestions, totalQuestions]
       );
@@ -105,7 +105,7 @@ router.post(
           SELECT *
           FROM questions
           WHERE difficulty_level = ? AND is_active = 1
-          ORDER BY RAND()
+          ORDER BY RANDOM()
           LIMIT ?
         `,
         [difficulty, Number(setting.question_count)]
@@ -131,7 +131,7 @@ router.post(
             total_score,
             total_points_earned
           )
-          VALUES (?, NULL, ?, 'in_progress', ?, 0, 0, 0, ?, 0, 0)
+          VALUES (?, NULL, ?, 'in_progress', ?, 0, 0, 0, ?, 0, 0) RETURNING id
         `,
         [req.auth.userId, startedAt, questionRows.length, questionRows.length]
       );
@@ -346,7 +346,7 @@ router.post(
               answered_at,
               response_time_ms
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
           `,
           [
             attemptId,

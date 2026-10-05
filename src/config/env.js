@@ -66,14 +66,14 @@ module.exports = {
     .filter(Boolean),
   db: {
     host: process.env.DB_HOST,
-    port: Number(process.env.DB_PORT) || 3306,
+    port: Number(process.env.DB_PORT) || 5432,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    waitForConnections: true,
     connectionLimit: Number(process.env.DB_CONNECTION_LIMIT) || 10,
-    queueLimit: 0,
     connectTimeout: Number(process.env.DB_CONNECT_TIMEOUT) || 10000,
+    // For managed Postgres that requires TLS; a same-host container doesn't.
+    ssl: process.env.DB_SSL === 'true',
   },
   firebase: {
     projectId: process.env.FIREBASE_PROJECT_ID || null,

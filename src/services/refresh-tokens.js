@@ -20,7 +20,7 @@ async function storeRefreshToken(connection, userId, refreshToken) {
         expires_at,
         last_used_at
       )
-      VALUES (?, ?, ?, UTC_TIMESTAMP())
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
     `,
     [userId, hashToken(refreshToken), expiresAt]
   );
@@ -32,7 +32,7 @@ async function revokeRefreshToken(connection, refreshToken) {
   await connection.execute(
     `
       UPDATE refresh_tokens
-      SET revoked_at = UTC_TIMESTAMP()
+      SET revoked_at = CURRENT_TIMESTAMP
       WHERE token_hash = ? AND revoked_at IS NULL
     `,
     [hashToken(refreshToken)]
@@ -41,7 +41,7 @@ async function revokeRefreshToken(connection, refreshToken) {
 
 async function revokeAllRefreshTokens(connection, userId) {
   await connection.execute(
-    'UPDATE refresh_tokens SET revoked_at = UTC_TIMESTAMP() WHERE user_id = ? AND revoked_at IS NULL',
+    'UPDATE refresh_tokens SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ? AND revoked_at IS NULL',
     [userId]
   );
 }
@@ -74,7 +74,7 @@ async function assertRefreshTokenIsActive(connection, userId, refreshToken) {
   await connection.execute(
     `
       UPDATE refresh_tokens
-      SET last_used_at = UTC_TIMESTAMP()
+      SET last_used_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `,
     [Number(tokenRecord.id)]

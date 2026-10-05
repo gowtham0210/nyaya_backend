@@ -7,6 +7,7 @@ const apiRoutesV1 = require('./routes/v1');
 const { corsOrigin } = require('./config/env');
 const { AppError } = require('./utils/errors');
 const { UPLOAD_ROOT } = require('./middleware/upload');
+const { PG_ERRORS } = require('./config/database');
 const logger = require('./utils/logger');
 
 const app = express();
@@ -67,13 +68,13 @@ app.use((error, req, res, next) => {
     return res.status(400).json({ message });
   }
 
-  if (error && error.code === 'ER_DUP_ENTRY') {
+  if (error && error.code === PG_ERRORS.uniqueViolation) {
     return res.status(409).json({
       message: 'A record with the same unique value already exists',
     });
   }
 
-  if (error && ['ER_NO_REFERENCED_ROW_2', 'ER_ROW_IS_REFERENCED_2'].includes(error.code)) {
+  if (error && error.code === PG_ERRORS.foreignKeyViolation) {
     return res.status(400).json({
       message: 'The request references related data that is missing or protected',
     });

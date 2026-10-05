@@ -169,12 +169,12 @@ async function run() {
       `
         INSERT INTO levels (code, name, min_points, max_points, badge_icon, reward_description)
         VALUES (?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-          name = VALUES(name),
-          min_points = VALUES(min_points),
-          max_points = VALUES(max_points),
-          badge_icon = VALUES(badge_icon),
-          reward_description = VALUES(reward_description)
+        ON CONFLICT (code) DO UPDATE SET
+          name = EXCLUDED.name,
+          min_points = EXCLUDED.min_points,
+          max_points = EXCLUDED.max_points,
+          badge_icon = EXCLUDED.badge_icon,
+          reward_description = EXCLUDED.reward_description
       `,
       [level.code, level.name, level.minPoints, level.maxPoints, level.badgeIcon, level.rewardDescription]
     );
@@ -185,12 +185,12 @@ async function run() {
       `
         INSERT INTO achievements (code, title, description, achievement_type, target_value, reward_points, is_active)
         VALUES (?, ?, ?, ?, ?, ?, 1)
-        ON DUPLICATE KEY UPDATE
-          title = VALUES(title),
-          description = VALUES(description),
-          achievement_type = VALUES(achievement_type),
-          target_value = VALUES(target_value),
-          reward_points = VALUES(reward_points)
+        ON CONFLICT (code) DO UPDATE SET
+          title = EXCLUDED.title,
+          description = EXCLUDED.description,
+          achievement_type = EXCLUDED.achievement_type,
+          target_value = EXCLUDED.target_value,
+          reward_points = EXCLUDED.reward_points
       `,
       [
         achievement.code,
