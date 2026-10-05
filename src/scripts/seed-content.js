@@ -207,7 +207,7 @@ async function run() {
   // put them on the level that matches their points.
   const [result] = await pool.query(`
     UPDATE user_progress up
-    SET up.current_level_id = (
+    SET current_level_id = (
       SELECT l.id FROM levels l
       WHERE l.min_points <= up.total_points
       ORDER BY l.min_points DESC, l.id DESC

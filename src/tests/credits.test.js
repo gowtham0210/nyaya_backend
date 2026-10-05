@@ -111,7 +111,7 @@ test('a level-journey chest only pays out once its four levels are completed, an
       SELECT q.id, q.slug
       FROM quizzes q
       INNER JOIN categories c ON c.id = q.category_id
-      WHERE c.slug = 'legal-awareness-journey' AND q.slug REGEXP '-level-[1-4]$'
+      WHERE c.slug = 'legal-awareness-journey' AND q.slug ~ '-level-[1-4]$'
       ORDER BY q.slug ASC
     `
   );
