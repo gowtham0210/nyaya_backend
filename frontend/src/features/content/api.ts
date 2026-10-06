@@ -1,5 +1,5 @@
 import { httpClient } from '@/lib/http-client';
-import { Category, PracticeSetting, Question, QuestionOption, Quiz } from '@/lib/types';
+import { Category, DailyQuestion, PracticeSetting, Question, QuestionOption, Quiz } from '@/lib/types';
 
 export type BulkCategoryMutationResult = {
   successIds: number[];
@@ -52,6 +52,23 @@ export async function updateCategoryStatus(categoryId: number, isActive: boolean
   });
 
   return response.data;
+}
+
+export async function getDailyQuestions() {
+  const response = await httpClient.get<{ items: DailyQuestion[] }>('/admin/daily-questions');
+  return response.data.items;
+}
+
+export async function saveDailyQuestion(dailyQuestionId: number | null, payload: Omit<DailyQuestion, 'id'>) {
+  const response = dailyQuestionId
+    ? await httpClient.patch<DailyQuestion>(`/admin/daily-questions/${dailyQuestionId}`, payload)
+    : await httpClient.post<DailyQuestion>('/admin/daily-questions', payload);
+
+  return response.data;
+}
+
+export async function deleteDailyQuestion(dailyQuestionId: number) {
+  await httpClient.delete(`/admin/daily-questions/${dailyQuestionId}`);
 }
 
 async function settleCategoryMutations(

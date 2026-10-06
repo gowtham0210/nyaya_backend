@@ -7,6 +7,7 @@ import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { CategoriesPage } from '@/features/content/CategoriesPage';
 import { QuizzesPage } from '@/features/content/QuizzesPage';
 import { QuestionsPage } from '@/features/content/QuestionsPage';
+import { DailyQuestionsPage } from '@/features/content/DailyQuestionsPage';
 import { LevelsPage } from '@/features/gamification/LevelsPage';
 import { LeaderboardsPage } from '@/features/gamification/LeaderboardsPage';
 import { FeatureLockedPage } from '@/features/placeholders/FeatureLockedPage';
@@ -36,6 +37,7 @@ export function AppRoutes() {
         <Route path="/content/categories" element={<CategoriesPage />} />
         <Route path="/content/quizzes" element={<QuizzesPage />} />
         <Route path="/content/questions" element={<QuestionsPage />} />
+        <Route path="/content/daily-questions" element={<DailyQuestionsPage />} />
         <Route path="/gamification/levels" element={<LevelsPage />} />
         <Route path="/gamification/leaderboards" element={<LeaderboardsPage />} />
         <Route

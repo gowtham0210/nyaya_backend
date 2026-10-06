@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, Flag, Home, Layers3, Settings2, ShieldQuestion, Trophy, Users } from 'lucide-react';
+import { BarChart3, BookOpen, CalendarDays, Flag, Home, Layers3, Settings2, ShieldQuestion, Trophy, Users } from 'lucide-react';
 
 export const FEATURE_FLAGS = {
   usersEnabled: false,
@@ -16,6 +16,7 @@ export const navigationSections = [
       { label: 'Categories', path: '/content/categories', icon: BookOpen },
       { label: 'Quizzes', path: '/content/quizzes', icon: Layers3 },
       { label: 'Questions', path: '/content/questions', icon: ShieldQuestion },
+      { label: 'Daily Questions', path: '/content/daily-questions', icon: CalendarDays },
     ],
   },
   {
@@ -53,6 +54,7 @@ export const routeTitles = {
   '/content/categories': { title: 'Categories', breadcrumb: 'Content / Categories' },
   '/content/quizzes': { title: 'Quizzes', breadcrumb: 'Content / Quizzes' },
   '/content/questions': { title: 'Questions', breadcrumb: 'Content / Questions' },
+  '/content/daily-questions': { title: 'Daily Questions', breadcrumb: 'Content / Daily Questions' },
   '/gamification/levels': { title: 'Levels', breadcrumb: 'Gamification / Levels' },
   '/gamification/leaderboards': { title: 'Leaderboards', breadcrumb: 'Gamification / Leaderboards' },
   '/users': { title: 'Users', breadcrumb: 'Users' },

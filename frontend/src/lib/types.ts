@@ -18,6 +18,13 @@ export interface Category {
   updatedAt: string;
 }
 
+export interface DailyQuestion {
+  id: number;
+  category: string;
+  question: string;
+  answer: string;
+}
+
 export interface Quiz {
   id: number;
   categoryId: number;

@@ -10,6 +10,12 @@ export const categorySchema = z.object({
   isActive: z.boolean(),
 });
 
+export const dailyQuestionSchema = z.object({
+  category: z.string().trim().min(1, 'Category is required').max(100, 'Category must be at most 100 characters'),
+  question: z.string().trim().min(5, 'Question must be at least 5 characters'),
+  answer: z.string().trim().min(1, 'Answer is required'),
+});
+
 export const quizSchema = z.object({
   categoryId: z.coerce.number().positive('Choose a category'),
   title: z.string().min(3, 'Quiz title must be at least 3 characters'),
@@ -108,6 +114,12 @@ export const bulkQuestionSchema = z
     options: questionShape.options,
   })
   .superRefine(applyQuestionRules);
+
+export const dailyQuestionDefaults = {
+  category: '',
+  question: '',
+  answer: '',
+};
 
 export const categoryDefaults = {
   name: '',

@@ -7,6 +7,7 @@ const { getPagination } = require('../../utils/pagination');
 const { createImageUploader, deleteUploadedFile, publicUrlFor } = require('../../middleware/upload');
 const {
   serializeCategory,
+  serializeDailyQuestion,
   serializeLeaderboardEntry,
   serializeLevel,
   serializePracticeSetting,
@@ -407,6 +408,112 @@ router.post(
     });
 
     res.json(serializeCategory(category));
+  })
+);
+
+const DAILY_QUESTION_FIELDS = {
+  category: 'category',
+  question: 'question',
+  answer: 'answer',
+};
+
+// All three columns are NOT NULL text, so any field that is sent must be a
+// non-blank string; category also has to fit its VARCHAR(100).
+function validateDailyQuestionFields(payload) {
+  for (const field of Object.keys(DAILY_QUESTION_FIELDS)) {
+    if (!Object.prototype.hasOwnProperty.call(payload, field)) {
+      continue;
+    }
+
+    if (typeof payload[field] !== 'string' || !payload[field].trim()) {
+      throw badRequest(`${field} must be a non-empty string`);
+    }
+  }
+
+  if (typeof payload.category === 'string' && payload.category.trim().length > 100) {
+    throw badRequest('category must be at most 100 characters');
+  }
+}
+
+router.get(
+  '/daily-questions',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute('SELECT * FROM daily_questions ORDER BY id DESC');
+
+    res.json({
+      items: rows.map(serializeDailyQuestion),
+    });
+  })
+);
+
+router.post(
+  '/daily-questions',
+  asyncHandler(async (req, res) => {
+    const payload = req.body || {};
+    requireFields(payload, ['category', 'question', 'answer']);
+    validateDailyQuestionFields(payload);
+
+    const [result] = await pool.execute(
+      'INSERT INTO daily_questions (category, question, answer) VALUES (?, ?, ?) RETURNING id',
+      [payload.category.trim(), payload.question.trim(), payload.answer.trim()]
+    );
+    const [rows] = await pool.execute('SELECT * FROM daily_questions WHERE id = ? LIMIT 1', [
+      Number(result.insertId),
+    ]);
+
+    res.status(201).json(serializeDailyQuestion(rows[0]));
+  })
+);
+
+router.patch(
+  '/daily-questions/:dailyQuestionId',
+  asyncHandler(async (req, res) => {
+    const dailyQuestionId = parseId(req.params.dailyQuestionId, 'dailyQuestionId');
+    const payload = req.body || {};
+    validateDailyQuestionFields(payload);
+
+    const trimmed = Object.fromEntries(
+      Object.keys(DAILY_QUESTION_FIELDS)
+        .filter((field) => Object.prototype.hasOwnProperty.call(payload, field))
+        .map((field) => [field, payload[field].trim()])
+    );
+    const update = buildUpdateClause(trimmed, DAILY_QUESTION_FIELDS);
+
+    if (!update) {
+      throw badRequest('At least one updatable field is required');
+    }
+
+    const [result] = await pool.execute(`UPDATE daily_questions SET ${update.setClause} WHERE id = ?`, [
+      ...update.values,
+      dailyQuestionId,
+    ]);
+
+    if (result.affectedRows === 0) {
+      throw notFound('Daily question not found');
+    }
+
+    const [rows] = await pool.execute('SELECT * FROM daily_questions WHERE id = ? LIMIT 1', [dailyQuestionId]);
+    res.json(serializeDailyQuestion(rows[0]));
+  })
+);
+
+// daily_questions has no is_active column, so this is a hard delete. Its
+// translations are keyed by entity id with no foreign key, so clear them too.
+router.delete(
+  '/daily-questions/:dailyQuestionId',
+  asyncHandler(async (req, res) => {
+    const dailyQuestionId = parseId(req.params.dailyQuestionId, 'dailyQuestionId');
+    const [result] = await pool.execute('DELETE FROM daily_questions WHERE id = ?', [dailyQuestionId]);
+
+    if (result.affectedRows === 0) {
+      throw notFound('Daily question not found');
+    }
+
+    await pool.execute("DELETE FROM translations WHERE entity_type = 'daily_question' AND entity_id = ?", [
+      dailyQuestionId,
+    ]);
+
+    res.status(204).send();
   })
 );
 
