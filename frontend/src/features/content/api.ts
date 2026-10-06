@@ -59,7 +59,12 @@ export async function getDailyQuestions() {
   return response.data.items;
 }
 
-export async function saveDailyQuestion(dailyQuestionId: number | null, payload: Omit<DailyQuestion, 'id'>) {
+export type DailyQuestionPayload = Omit<DailyQuestion, 'id' | 'options'> & {
+  // An option with an id updates that stored option; one without is added.
+  options: Array<{ id?: number; optionText: string; isCorrect: boolean }>;
+};
+
+export async function saveDailyQuestion(dailyQuestionId: number | null, payload: DailyQuestionPayload) {
   const response = dailyQuestionId
     ? await httpClient.patch<DailyQuestion>(`/admin/daily-questions/${dailyQuestionId}`, payload)
     : await httpClient.post<DailyQuestion>('/admin/daily-questions', payload);

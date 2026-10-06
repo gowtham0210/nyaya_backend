@@ -18,11 +18,21 @@ export interface Category {
   updatedAt: string;
 }
 
+export interface DailyQuestionOption {
+  id: number;
+  optionText: string;
+  isCorrect: boolean;
+  displayOrder: number;
+}
+
 export interface DailyQuestion {
   id: number;
   category: string;
   question: string;
+  // Explanation shown to the player after they answer.
   answer: string;
+  pointsReward: number;
+  options: DailyQuestionOption[];
 }
 
 export interface Quiz {

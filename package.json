@@ -11,6 +11,7 @@
     "db:migrate": "node src/scripts/migrate.js",
     "db:seed-admin": "node src/scripts/seed-admin.js",
     "db:seed-content": "node src/scripts/seed-content.js",
+    "db:seed-daily-questions": "node src/scripts/seed-daily-questions.js",
     "db:seed-articles": "node src/scripts/seed-articles.js",
     "db:update-articles-content": "node src/scripts/update-articles-content.js",
     "test": "node --test src/tests/*.test.js"

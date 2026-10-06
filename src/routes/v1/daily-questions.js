@@ -1,8 +1,11 @@
 const express = require('express');
-const { pool } = require('../../config/database');
+const { pool, withTransaction } = require('../../config/database');
 const { asyncHandler } = require('../../utils/async-handler');
 const { serializeDailyQuestion } = require('../../utils/serializers');
 const { applyTranslations } = require('../../utils/translate');
+const { badRequest } = require('../../utils/errors');
+const { parseId } = require('../../utils/sql');
+const { getTodayForUser, answerToday } = require('../../services/daily-questions');
 
 const router = express.Router();
 
@@ -28,6 +31,33 @@ router.get('/random', asyncHandler(async (req, res) => {
     lang
   );
   res.json({ items });
+}));
+
+// GET /daily-questions/today?lang=hi - today's multiple-choice question (the
+// same one for every player). Once answered, `result` holds the player's pick,
+// the correct option and the explanation; before that it is null.
+router.get('/today', asyncHandler(async (req, res) => {
+  const lang = typeof req.query.lang === 'string' ? req.query.lang : null;
+  res.json(await getTodayForUser(req.auth.userId, lang));
+}));
+
+// POST /daily-questions/today/answer { selectedOptionId } - one answer per
+// player per day (409 after that). Awards points if correct and counts toward
+// the streak either way.
+router.post('/today/answer', asyncHandler(async (req, res) => {
+  const { selectedOptionId } = req.body || {};
+
+  if (selectedOptionId === undefined || selectedOptionId === null) {
+    throw badRequest('selectedOptionId is required');
+  }
+
+  const lang = typeof req.query.lang === 'string' ? req.query.lang : null;
+  const optionId = parseId(selectedOptionId, 'selectedOptionId');
+  const result = await withTransaction((connection) =>
+    answerToday(connection, req.auth.userId, optionId, lang)
+  );
+
+  res.status(201).json(result);
 }));
 
 module.exports = router;

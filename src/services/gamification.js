@@ -256,6 +256,7 @@ async function getAttemptOrThrow(connection, attemptId, userId) {
 }
 
 module.exports = {
+  toLocalDateString,
   calculateAccuracy,
   ensureUserSummaryRows,
   getUserProgressRow,

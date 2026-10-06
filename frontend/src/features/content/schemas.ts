@@ -13,7 +13,22 @@ export const categorySchema = z.object({
 export const dailyQuestionSchema = z.object({
   category: z.string().trim().min(1, 'Category is required').max(100, 'Category must be at most 100 characters'),
   question: z.string().trim().min(5, 'Question must be at least 5 characters'),
-  answer: z.string().trim().min(1, 'Answer is required'),
+  answer: z.string().trim().min(1, 'Explanation is required'),
+  pointsReward: z.coerce.number().int('Points must be a whole number').min(0, 'Points cannot be negative'),
+  options: z
+    .array(
+      z.object({
+        // Stored option id; not `id`, which useFieldArray reserves for its own keys.
+        optionId: z.number().optional(),
+        optionText: z.string().trim().min(1, 'Option text is required'),
+        isCorrect: z.boolean(),
+      })
+    )
+    .min(2, 'Add at least two choices')
+    .max(6, 'Use at most six choices')
+    .refine((options) => options.filter((option) => option.isCorrect).length === 1, {
+      message: 'Mark exactly one choice as correct',
+    }),
 });
 
 export const quizSchema = z.object({
@@ -119,6 +134,12 @@ export const dailyQuestionDefaults = {
   category: '',
   question: '',
   answer: '',
+  pointsReward: 10,
+  options: [
+    { optionText: '', isCorrect: true },
+    { optionText: '', isCorrect: false },
+    { optionText: '', isCorrect: false },
+  ],
 };
 
 export const categoryDefaults = {

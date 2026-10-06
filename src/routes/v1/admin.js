@@ -1,5 +1,5 @@
 const express = require('express');
-const { pool } = require('../../config/database');
+const { pool, withTransaction } = require('../../config/database');
 const { asyncHandler } = require('../../utils/async-handler');
 const { notFound, badRequest } = require('../../utils/errors');
 const { buildUpdateClause, parseBoolean, parseId, requireFields } = require('../../utils/sql');
@@ -416,8 +416,10 @@ const DAILY_QUESTION_FIELDS = {
   question: 'question',
   answer: 'answer',
 };
+const MIN_DAILY_QUESTION_OPTIONS = 2;
+const MAX_DAILY_QUESTION_OPTIONS = 6;
 
-// All three columns are NOT NULL text, so any field that is sent must be a
+// All three text columns are NOT NULL, so any field that is sent must be a
 // non-blank string; category also has to fit its VARCHAR(100).
 function validateDailyQuestionFields(payload) {
   for (const field of Object.keys(DAILY_QUESTION_FIELDS)) {
@@ -433,15 +435,135 @@ function validateDailyQuestionFields(payload) {
   if (typeof payload.category === 'string' && payload.category.trim().length > 100) {
     throw badRequest('category must be at most 100 characters');
   }
+
+  if (
+    Object.prototype.hasOwnProperty.call(payload, 'pointsReward') &&
+    (!Number.isInteger(payload.pointsReward) || payload.pointsReward < 0)
+  ) {
+    throw badRequest('pointsReward must be a whole number, 0 or more');
+  }
+}
+
+// Players are graded against these, so a set is only valid with a sensible
+// number of choices and exactly one marked correct.
+function validateDailyQuestionOptions(options) {
+  if (
+    !Array.isArray(options) ||
+    options.length < MIN_DAILY_QUESTION_OPTIONS ||
+    options.length > MAX_DAILY_QUESTION_OPTIONS
+  ) {
+    throw badRequest(
+      `options must be a list of ${MIN_DAILY_QUESTION_OPTIONS} to ${MAX_DAILY_QUESTION_OPTIONS} choices`
+    );
+  }
+
+  for (const option of options) {
+    if (!option || typeof option.optionText !== 'string' || !option.optionText.trim()) {
+      throw badRequest('Every option needs non-empty optionText');
+    }
+  }
+
+  if (options.filter((option) => option.isCorrect === true).length !== 1) {
+    throw badRequest('Exactly one option must be marked correct');
+  }
+}
+
+// Makes the stored options match `options`: entries with an id are updated in
+// place (so past answers keep pointing at the same choice), entries without one
+// are added, and stored options left out are removed.
+async function syncDailyQuestionOptions(connection, dailyQuestionId, options) {
+  const [existingRows] = await connection.execute(
+    'SELECT id FROM daily_question_options WHERE daily_question_id = ?',
+    [dailyQuestionId]
+  );
+  const existingIds = new Set(existingRows.map((row) => Number(row.id)));
+  const keptIds = new Set();
+
+  for (const [index, option] of options.entries()) {
+    const values = [option.optionText.trim(), option.isCorrect ? 1 : 0, index + 1];
+
+    if (option.id === undefined || option.id === null) {
+      await connection.execute(
+        `
+          INSERT INTO daily_question_options (daily_question_id, option_text, is_correct, display_order)
+          VALUES (?, ?, ?, ?)
+        `,
+        [dailyQuestionId, ...values]
+      );
+      continue;
+    }
+
+    const optionId = parseId(option.id, 'option id');
+
+    if (!existingIds.has(optionId)) {
+      throw badRequest(`Option ${optionId} does not belong to this daily question`);
+    }
+
+    keptIds.add(optionId);
+    await connection.execute(
+      'UPDATE daily_question_options SET option_text = ?, is_correct = ?, display_order = ? WHERE id = ?',
+      [...values, optionId]
+    );
+  }
+
+  const removedIds = [...existingIds].filter((id) => !keptIds.has(id));
+
+  if (removedIds.length) {
+    await connection.execute('DELETE FROM daily_question_options WHERE id IN (?)', [removedIds]);
+    await connection.execute(
+      "DELETE FROM translations WHERE entity_type = 'daily_question_option' AND entity_id IN (?)",
+      [removedIds]
+    );
+  }
+}
+
+async function loadAdminDailyQuestions(connection, dailyQuestionId = null) {
+  const [rows] = dailyQuestionId
+    ? await connection.execute('SELECT * FROM daily_questions WHERE id = ?', [dailyQuestionId])
+    : await connection.execute('SELECT * FROM daily_questions ORDER BY id DESC');
+
+  if (!rows.length) {
+    return [];
+  }
+
+  const [optionRows] = await connection.execute(
+    `
+      SELECT *
+      FROM daily_question_options
+      WHERE daily_question_id IN (?)
+      ORDER BY daily_question_id ASC, display_order ASC, id ASC
+    `,
+    [rows.map((row) => Number(row.id))]
+  );
+  const optionsByQuestionId = new Map();
+
+  for (const option of optionRows) {
+    const questionId = Number(option.daily_question_id);
+
+    if (!optionsByQuestionId.has(questionId)) {
+      optionsByQuestionId.set(questionId, []);
+    }
+
+    optionsByQuestionId.get(questionId).push({
+      id: Number(option.id),
+      optionText: option.option_text,
+      isCorrect: Number(option.is_correct) === 1,
+      displayOrder: Number(option.display_order),
+    });
+  }
+
+  return rows.map((row) => ({
+    ...serializeDailyQuestion(row),
+    pointsReward: Number(row.points_reward),
+    options: optionsByQuestionId.get(Number(row.id)) || [],
+  }));
 }
 
 router.get(
   '/daily-questions',
   asyncHandler(async (req, res) => {
-    const [rows] = await pool.execute('SELECT * FROM daily_questions ORDER BY id DESC');
-
     res.json({
-      items: rows.map(serializeDailyQuestion),
+      items: await loadAdminDailyQuestions(pool),
     });
   })
 );
@@ -450,18 +572,34 @@ router.post(
   '/daily-questions',
   asyncHandler(async (req, res) => {
     const payload = req.body || {};
-    requireFields(payload, ['category', 'question', 'answer']);
+    requireFields(payload, ['category', 'question', 'answer', 'options']);
     validateDailyQuestionFields(payload);
+    validateDailyQuestionOptions(payload.options);
 
-    const [result] = await pool.execute(
-      'INSERT INTO daily_questions (category, question, answer) VALUES (?, ?, ?) RETURNING id',
-      [payload.category.trim(), payload.question.trim(), payload.answer.trim()]
-    );
-    const [rows] = await pool.execute('SELECT * FROM daily_questions WHERE id = ? LIMIT 1', [
-      Number(result.insertId),
-    ]);
+    const created = await withTransaction(async (connection) => {
+      const [result] = await connection.execute(
+        `
+          INSERT INTO daily_questions (category, question, answer, points_reward)
+          VALUES (?, ?, ?, ?) RETURNING id
+        `,
+        [
+          payload.category.trim(),
+          payload.question.trim(),
+          payload.answer.trim(),
+          payload.pointsReward === undefined ? 10 : payload.pointsReward,
+        ]
+      );
+      const dailyQuestionId = Number(result.insertId);
+      await syncDailyQuestionOptions(
+        connection,
+        dailyQuestionId,
+        payload.options.map(({ optionText, isCorrect }) => ({ optionText, isCorrect }))
+      );
 
-    res.status(201).json(serializeDailyQuestion(rows[0]));
+      return (await loadAdminDailyQuestions(connection, dailyQuestionId))[0];
+    });
+
+    res.status(201).json(created);
   })
 );
 
@@ -470,48 +608,88 @@ router.patch(
   asyncHandler(async (req, res) => {
     const dailyQuestionId = parseId(req.params.dailyQuestionId, 'dailyQuestionId');
     const payload = req.body || {};
+    const hasOptions = Object.prototype.hasOwnProperty.call(payload, 'options');
     validateDailyQuestionFields(payload);
 
-    const trimmed = Object.fromEntries(
+    if (hasOptions) {
+      validateDailyQuestionOptions(payload.options);
+    }
+
+    const fields = Object.fromEntries(
       Object.keys(DAILY_QUESTION_FIELDS)
         .filter((field) => Object.prototype.hasOwnProperty.call(payload, field))
         .map((field) => [field, payload[field].trim()])
     );
-    const update = buildUpdateClause(trimmed, DAILY_QUESTION_FIELDS);
 
-    if (!update) {
+    if (Object.prototype.hasOwnProperty.call(payload, 'pointsReward')) {
+      fields.pointsReward = payload.pointsReward;
+    }
+
+    const update = buildUpdateClause(fields, { ...DAILY_QUESTION_FIELDS, pointsReward: 'points_reward' });
+
+    if (!update && !hasOptions) {
       throw badRequest('At least one updatable field is required');
     }
 
-    const [result] = await pool.execute(`UPDATE daily_questions SET ${update.setClause} WHERE id = ?`, [
-      ...update.values,
-      dailyQuestionId,
-    ]);
+    const updated = await withTransaction(async (connection) => {
+      const [rows] = await connection.execute('SELECT id FROM daily_questions WHERE id = ? FOR UPDATE', [
+        dailyQuestionId,
+      ]);
 
-    if (result.affectedRows === 0) {
-      throw notFound('Daily question not found');
-    }
+      if (!rows[0]) {
+        throw notFound('Daily question not found');
+      }
 
-    const [rows] = await pool.execute('SELECT * FROM daily_questions WHERE id = ? LIMIT 1', [dailyQuestionId]);
-    res.json(serializeDailyQuestion(rows[0]));
+      if (update) {
+        await connection.execute(`UPDATE daily_questions SET ${update.setClause} WHERE id = ?`, [
+          ...update.values,
+          dailyQuestionId,
+        ]);
+      }
+
+      if (hasOptions) {
+        await syncDailyQuestionOptions(connection, dailyQuestionId, payload.options);
+      }
+
+      return (await loadAdminDailyQuestions(connection, dailyQuestionId))[0];
+    });
+
+    res.json(updated);
   })
 );
 
-// daily_questions has no is_active column, so this is a hard delete. Its
-// translations are keyed by entity id with no foreign key, so clear them too.
+// daily_questions has no is_active column, so this is a hard delete (options
+// and schedule rows cascade; past answers keep their row with the reference
+// cleared). Translations are keyed by entity id with no foreign key, so clear
+// the question's and its options' too.
 router.delete(
   '/daily-questions/:dailyQuestionId',
   asyncHandler(async (req, res) => {
     const dailyQuestionId = parseId(req.params.dailyQuestionId, 'dailyQuestionId');
-    const [result] = await pool.execute('DELETE FROM daily_questions WHERE id = ?', [dailyQuestionId]);
 
-    if (result.affectedRows === 0) {
-      throw notFound('Daily question not found');
-    }
+    await withTransaction(async (connection) => {
+      const [optionRows] = await connection.execute(
+        'SELECT id FROM daily_question_options WHERE daily_question_id = ?',
+        [dailyQuestionId]
+      );
+      const [result] = await connection.execute('DELETE FROM daily_questions WHERE id = ?', [dailyQuestionId]);
 
-    await pool.execute("DELETE FROM translations WHERE entity_type = 'daily_question' AND entity_id = ?", [
-      dailyQuestionId,
-    ]);
+      if (result.affectedRows === 0) {
+        throw notFound('Daily question not found');
+      }
+
+      await connection.execute(
+        "DELETE FROM translations WHERE entity_type = 'daily_question' AND entity_id = ?",
+        [dailyQuestionId]
+      );
+
+      if (optionRows.length) {
+        await connection.execute(
+          "DELETE FROM translations WHERE entity_type = 'daily_question_option' AND entity_id IN (?)",
+          [optionRows.map((row) => Number(row.id))]
+        );
+      }
+    });
 
     res.status(204).send();
   })
