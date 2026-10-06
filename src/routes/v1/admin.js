@@ -9,6 +9,7 @@ const {
   serializeCategory,
   serializeDailyQuestion,
   serializeLeaderboardEntry,
+  serializeLegalUpdate,
   serializeLevel,
   serializePracticeSetting,
   serializeQuestion,
@@ -21,10 +22,11 @@ const { serializeResource } = require('./help-resources');
 const router = express.Router();
 const categoryImageUpload = createImageUploader('categories');
 const quizImageUpload = createImageUploader('quizzes');
+const legalUpdateImageUpload = createImageUploader('legal-updates');
 
-// Shared by the category and quiz image-upload routes below: swap in the new
-// file, delete the one it replaced, return the updated row.
-async function replaceEntityImage({ table, subdir, id, file, notFoundMessage }) {
+// Shared by the category, quiz and legal-update image-upload routes below: swap
+// in the new file, delete the one it replaced, return the updated row.
+async function replaceEntityImage({ table, subdir, id, file, notFoundMessage, touchUpdatedAt = true }) {
   if (!file) {
     throw badRequest('An image file is required (multipart field "image")');
   }
@@ -36,10 +38,8 @@ async function replaceEntityImage({ table, subdir, id, file, notFoundMessage }) 
   }
 
   const imageUrl = publicUrlFor(subdir, file.filename);
-  await pool.execute(`UPDATE ${table} SET image_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [
-    imageUrl,
-    id,
-  ]);
+  const touch = touchUpdatedAt ? ', updated_at = CURRENT_TIMESTAMP' : '';
+  await pool.execute(`UPDATE ${table} SET image_url = ?${touch} WHERE id = ?`, [imageUrl, id]);
   deleteUploadedFile(rows[0].image_url);
 
   const [updatedRows] = await pool.execute(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [id]);
@@ -692,6 +692,217 @@ router.delete(
     });
 
     res.status(204).send();
+  })
+);
+
+// The app maps these exact English values to translated labels (see
+// routes/v1/legal-updates.js), so only these are accepted.
+const LEGAL_UPDATE_CATEGORIES = ['Judgements', 'Legislation', 'Reforms', 'Notices'];
+const LEGAL_UPDATE_FIELDS = {
+  category: 'category',
+  title: 'title',
+  summary: 'summary',
+  updateDate: 'update_date',
+  source: 'source',
+  imageUrl: 'image_url',
+};
+
+function isValidDateString(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+// Checks every field that is present and returns them trimmed, with blank
+// optional text stored as NULL.
+function normalizeLegalUpdateFields(payload) {
+  const has = (field) => Object.prototype.hasOwnProperty.call(payload, field);
+  const fields = {};
+
+  if (has('category')) {
+    if (!LEGAL_UPDATE_CATEGORIES.includes(payload.category)) {
+      throw badRequest(`category must be one of: ${LEGAL_UPDATE_CATEGORIES.join(', ')}`);
+    }
+
+    fields.category = payload.category;
+  }
+
+  if (has('title')) {
+    if (typeof payload.title !== 'string' || !payload.title.trim()) {
+      throw badRequest('title must be a non-empty string');
+    }
+
+    if (payload.title.trim().length > 255) {
+      throw badRequest('title must be at most 255 characters');
+    }
+
+    fields.title = payload.title.trim();
+  }
+
+  if (has('updateDate')) {
+    if (!isValidDateString(payload.updateDate)) {
+      throw badRequest('updateDate must be a date in YYYY-MM-DD format');
+    }
+
+    fields.updateDate = payload.updateDate;
+  }
+
+  for (const [field, maxLength] of [['summary', null], ['source', 255], ['imageUrl', 500]]) {
+    if (!has(field)) {
+      continue;
+    }
+
+    const value = payload[field];
+
+    if (value !== null && typeof value !== 'string') {
+      throw badRequest(`${field} must be a string or null`);
+    }
+
+    const trimmed = value === null ? '' : value.trim();
+
+    if (maxLength && trimmed.length > maxLength) {
+      throw badRequest(`${field} must be at most ${maxLength} characters`);
+    }
+
+    fields[field] = trimmed || null;
+  }
+
+  // Either an uploaded file (set via the image route) or an external link.
+  if (fields.imageUrl && !/^(https?:\/\/|\/uploads\/)/.test(fields.imageUrl)) {
+    throw badRequest('imageUrl must be an http(s) link or an uploaded file path');
+  }
+
+  return fields;
+}
+
+router.get(
+  '/legal-updates',
+  asyncHandler(async (req, res) => {
+    const category = typeof req.query.category === 'string' ? req.query.category.trim() : '';
+    const [rows] = category
+      ? await pool.execute(
+          'SELECT * FROM legal_updates WHERE category = ? ORDER BY update_date DESC, id DESC',
+          [category]
+        )
+      : await pool.execute('SELECT * FROM legal_updates ORDER BY update_date DESC, id DESC');
+
+    res.json({
+      items: rows.map(serializeLegalUpdate),
+    });
+  })
+);
+
+router.post(
+  '/legal-updates',
+  asyncHandler(async (req, res) => {
+    const payload = req.body || {};
+    requireFields(payload, ['category', 'title', 'updateDate']);
+    const fields = normalizeLegalUpdateFields(payload);
+
+    const [result] = await pool.execute(
+      `
+        INSERT INTO legal_updates (category, title, summary, update_date, source, image_url)
+        VALUES (?, ?, ?, ?, ?, ?) RETURNING id
+      `,
+      [
+        fields.category,
+        fields.title,
+        fields.summary ?? null,
+        fields.updateDate,
+        fields.source ?? null,
+        fields.imageUrl ?? null,
+      ]
+    );
+    const [rows] = await pool.execute('SELECT * FROM legal_updates WHERE id = ? LIMIT 1', [
+      Number(result.insertId),
+    ]);
+
+    res.status(201).json(serializeLegalUpdate(rows[0]));
+  })
+);
+
+router.patch(
+  '/legal-updates/:legalUpdateId',
+  asyncHandler(async (req, res) => {
+    const legalUpdateId = parseId(req.params.legalUpdateId, 'legalUpdateId');
+    const fields = normalizeLegalUpdateFields(req.body || {});
+    const update = buildUpdateClause(fields, LEGAL_UPDATE_FIELDS);
+
+    if (!update) {
+      throw badRequest('At least one updatable field is required');
+    }
+
+    const [existingRows] = await pool.execute('SELECT image_url FROM legal_updates WHERE id = ? LIMIT 1', [
+      legalUpdateId,
+    ]);
+
+    if (!existingRows[0]) {
+      throw notFound('Legal update not found');
+    }
+
+    await pool.execute(`UPDATE legal_updates SET ${update.setClause} WHERE id = ?`, [
+      ...update.values,
+      legalUpdateId,
+    ]);
+
+    // Replacing or clearing an uploaded image leaves its file unused.
+    if (Object.prototype.hasOwnProperty.call(fields, 'imageUrl') && fields.imageUrl !== existingRows[0].image_url) {
+      deleteUploadedFile(existingRows[0].image_url);
+    }
+
+    const [rows] = await pool.execute('SELECT * FROM legal_updates WHERE id = ? LIMIT 1', [legalUpdateId]);
+    res.json(serializeLegalUpdate(rows[0]));
+  })
+);
+
+// legal_updates has no is_active column, so this is a hard delete, along with
+// its translations (no foreign key) and any uploaded image.
+router.delete(
+  '/legal-updates/:legalUpdateId',
+  asyncHandler(async (req, res) => {
+    const legalUpdateId = parseId(req.params.legalUpdateId, 'legalUpdateId');
+
+    const imageUrl = await withTransaction(async (connection) => {
+      const [result] = await connection.execute(
+        'DELETE FROM legal_updates WHERE id = ? RETURNING image_url',
+        [legalUpdateId]
+      );
+
+      if (result.affectedRows === 0) {
+        throw notFound('Legal update not found');
+      }
+
+      await connection.execute(
+        "DELETE FROM translations WHERE entity_type = 'legal_update' AND entity_id = ?",
+        [legalUpdateId]
+      );
+
+      return result.rows[0].image_url;
+    });
+
+    deleteUploadedFile(imageUrl);
+    res.status(204).send();
+  })
+);
+
+router.post(
+  '/legal-updates/:legalUpdateId/image',
+  legalUpdateImageUpload,
+  asyncHandler(async (req, res) => {
+    const legalUpdateId = parseId(req.params.legalUpdateId, 'legalUpdateId');
+    const legalUpdate = await replaceEntityImage({
+      table: 'legal_updates',
+      subdir: 'legal-updates',
+      id: legalUpdateId,
+      file: req.file,
+      notFoundMessage: 'Legal update not found',
+      touchUpdatedAt: false,
+    });
+
+    res.json(serializeLegalUpdate(legalUpdate));
   })
 );
 

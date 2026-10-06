@@ -1,5 +1,5 @@
 import { httpClient } from '@/lib/http-client';
-import { Category, DailyQuestion, PracticeSetting, Question, QuestionOption, Quiz } from '@/lib/types';
+import { Category, DailyQuestion, LegalUpdate, PracticeSetting, Question, QuestionOption, Quiz } from '@/lib/types';
 
 export type BulkCategoryMutationResult = {
   successIds: number[];
@@ -74,6 +74,33 @@ export async function saveDailyQuestion(dailyQuestionId: number | null, payload:
 
 export async function deleteDailyQuestion(dailyQuestionId: number) {
   await httpClient.delete(`/admin/daily-questions/${dailyQuestionId}`);
+}
+
+// imageUrl is only sent to clear the image (null); files go through uploadLegalUpdateImage.
+export type LegalUpdatePayload = Omit<LegalUpdate, 'id' | 'createdAt' | 'imageUrl'> & { imageUrl?: null };
+
+export async function getLegalUpdates() {
+  const response = await httpClient.get<{ items: LegalUpdate[] }>('/admin/legal-updates');
+  return response.data.items;
+}
+
+export async function saveLegalUpdate(legalUpdateId: number | null, payload: LegalUpdatePayload) {
+  const response = legalUpdateId
+    ? await httpClient.patch<LegalUpdate>(`/admin/legal-updates/${legalUpdateId}`, payload)
+    : await httpClient.post<LegalUpdate>('/admin/legal-updates', payload);
+
+  return response.data;
+}
+
+export async function uploadLegalUpdateImage(legalUpdateId: number, file: File) {
+  const form = new FormData();
+  form.append('image', file);
+  const response = await httpClient.post<LegalUpdate>(`/admin/legal-updates/${legalUpdateId}/image`, form);
+  return response.data;
+}
+
+export async function deleteLegalUpdate(legalUpdateId: number) {
+  await httpClient.delete(`/admin/legal-updates/${legalUpdateId}`);
 }
 
 async function settleCategoryMutations(

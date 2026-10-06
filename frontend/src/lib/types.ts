@@ -35,6 +35,21 @@ export interface DailyQuestion {
   options: DailyQuestionOption[];
 }
 
+export const LEGAL_UPDATE_CATEGORIES = ['Judgements', 'Legislation', 'Reforms', 'Notices'] as const;
+
+export type LegalUpdateCategory = (typeof LEGAL_UPDATE_CATEGORIES)[number];
+
+export interface LegalUpdate {
+  id: number;
+  category: LegalUpdateCategory;
+  title: string;
+  summary: string | null;
+  updateDate: string;
+  source: string | null;
+  imageUrl: string | null;
+  createdAt: string;
+}
+
 export interface Quiz {
   id: number;
   categoryId: number;

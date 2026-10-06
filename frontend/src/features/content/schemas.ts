@@ -10,6 +10,14 @@ export const categorySchema = z.object({
   isActive: z.boolean(),
 });
 
+export const legalUpdateSchema = z.object({
+  category: z.enum(['Judgements', 'Legislation', 'Reforms', 'Notices']),
+  title: z.string().trim().min(3, 'Title must be at least 3 characters').max(255, 'Title must be at most 255 characters'),
+  summary: z.string().optional().nullable(),
+  updateDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Pick a date'),
+  source: z.string().max(255, 'Source must be at most 255 characters').optional().nullable(),
+});
+
 export const dailyQuestionSchema = z.object({
   category: z.string().trim().min(1, 'Category is required').max(100, 'Category must be at most 100 characters'),
   question: z.string().trim().min(5, 'Question must be at least 5 characters'),
@@ -129,6 +137,16 @@ export const bulkQuestionSchema = z
     options: questionShape.options,
   })
   .superRefine(applyQuestionRules);
+
+export function legalUpdateDefaults() {
+  return {
+    category: 'Judgements' as const,
+    title: '',
+    summary: '',
+    updateDate: new Date().toISOString().slice(0, 10),
+    source: '',
+  };
+}
 
 export const dailyQuestionDefaults = {
   category: '',
